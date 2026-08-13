@@ -1,0 +1,35 @@
+﻿@model List<Cosmechic.Models.Produit>
+
+@{
+    ViewData["Title"] = "Produits de la catégorie " + ViewBag.CategorieNom;
+}
+
+<div class="container mt-5">
+    <h2 class="text-center">@ViewBag.CategorieNom</h2>
+
+    <div class="row mt-4">
+        @if (Model.Count == 0)
+        {
+            <p class="text-center text-muted">Aucun produit disponible dans cette catégorie.</p>
+        }
+        else
+        {
+            @foreach (var produit in Model)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="@Url.Content("~/Images_Produits/" + produit.Image)" class="card-img-top" alt="@produit.Nom">
+                        <div class="card-body">
+                            <h5 class="card-title">@produit.Nom</h5>
+                            <p class="card-text">@produit.Description</p>
+                            <p class="text-danger"><strong>@produit.Prix.ToString("0.00") CAD</strong></p>
+                            <a href="@Url.Action("ItemDetails", "Produits", new { productId = produit.ProduitId })" class="btn btn-primary">
+                                Voir le produit
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
