@@ -1,0 +1,276 @@
+﻿@model Cosmechic.ViewModels.HomeIndexViewModel
+
+<style>
+    /* Global */
+    body {
+        background-color: ghostwhite;
+        font-family: 'Merriweather Sans', sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Animation keyframes */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Appliquée à chaque section pour gérer l'espacement et l'animation */
+    .animate-section {
+        margin-bottom: 100px;
+        animation: fadeInUp 1s ease-out both;
+    }
+
+    /* Bannière principale */
+    .banner {
+        position: relative;
+        width: 100%;
+        height: 70vh;
+        overflow: hidden;
+    }
+
+        .banner img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+    .banner-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 30px;
+        border-radius: 10px;
+    }
+
+    /* Titres de section */
+    .section-heading {
+        margin-top: 50px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    /* Cartes (Best-Sellers, Blog, etc.) */
+    .card {
+        margin-bottom: 30px;
+        width: 450px;
+    }
+
+    /* Images produits et catégories */
+    .product-image {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }
+
+    /* Promo cards */
+    .promo-card {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    /* Témoignages */
+    .testimonial {
+        border: 1px solid #ddd;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #fff;
+        margin-bottom: 30px;
+    }
+
+    /* Newsletter */
+    .newsletter input[type="email"] {
+        max-width: 400px;
+        margin: 0 auto;
+    }
+</style>
+
+<!-- Contenu Principal -->
+<div>
+    <!-- 1. Bannière principale pleine largeur -->
+    <section class="animate-section banner">
+        <img src="~/Images log_register_forgot/Accueil.jpg" alt="Bienvenue à Cosmechic">
+        <div class="banner-overlay">
+            <h1>Bienvenue chez Cosmechic</h1>
+            <h5>Votre boutique afro par excellence</h5>
+            <a class="btn btn-primary" asp-controller="Categories" asp-action="Customer">
+                Consulter nos catégories
+            </a>
+        </div>
+    </section>
+
+    <!-- 2. Nos Engagements & Valeurs -->
+    <section class="animate-section container text-center">
+        <div class="section-heading">
+            <h2>Nos Engagements & Valeurs</h2>
+        </div>
+        <p>Chez Cosmechic, nous nous engageons à offrir des produits naturels et éthiques qui respectent votre peau et vos cheveux.</p>
+        <p>Nous favorisons des ingrédients biologiques et soutenons les artisans afro-descendants dans le monde entier.</p>
+    </section>
+
+    <!-- 3. Nos Best-Sellers -->
+    <section class="animate-section container-fluid">
+        <div class="section-heading text-center">
+            <h2>Nos Best-Sellers</h2>
+        </div>
+        <div class="d-flex flex-wrap justify-content-center gap-4">
+            @foreach (var produit in Model.BestSellers)
+            {
+                <div class="card">
+                    <img src="@Url.Content("~/Images_Produits/" + produit.Image)" class="card-img-top product-image" alt="@produit.Nom">
+                    <div class="card-body">
+                        <h5 class="card-title">@produit.Nom</h5>
+                        <p class="card-text">Prix: @produit.Prix CAD</p>
+                        <a class="btn btn-outline-primary" asp-controller="Produits" asp-action="ItemDetails" asp-route-productId="@produit.ProduitId">
+                            <i class="bi bi-cart-plus"></i> Ajouter
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- 4. Promotions & Offres Spéciales -->
+    <section class="animate-section container">
+        <div class="section-heading text-center">
+            <h2>Promotions & Offres Spéciales</h2>
+        </div>
+        <div class="row">
+            @foreach (var promo in Model.Promotions)
+            {
+                <div class="col-md-6">
+                    <div class="promo-card">
+                        <h5>@promo.Titre</h5>
+                        <p>@promo.Description</p>
+                        <p class="text-danger"><strong>Remise: @promo.Remise%</strong></p>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- 5. Blog & Conseils Beauté -->
+    <section class="animate-section container-fluid">
+        <div class="section-heading text-center">
+            <h2>Blog & Conseils Beauté</h2>
+        </div>
+        <div class="d-flex flex-wrap justify-content-center gap-4">
+            @foreach (var article in Model.ArticlesBlog)
+            {
+                <div class="col-md-4">
+                    <div class="card">
+                        <img src="@Url.Content("~/Images_Blog/" + article.Image)" class="card-img-top category-image" alt="@article.Titre">
+                        <div class="card-body">
+                            <h5 class="card-title">@article.Titre</h5>
+                            <p class="card-text">@article.Extrait</p>
+                            <a href="#" class="btn btn-outline-secondary">Lire l'article</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- 6. Témoignages Clients -->
+    <section class="animate-section container">
+        <div class="section-heading text-center">
+            <h2>Avis Clients</h2>
+        </div>
+        <div class="row">
+            @foreach (var temoignage in Model.Temoignages)
+            {
+                <div class="col-md-4">
+                    <div class="testimonial">
+                        <div class="d-flex align-items-center">
+                            <img src="~/Images/avatar.png" alt="Avatar" class="rounded-circle me-2" width="40" height="40">
+                            <strong>@temoignage.Nom</strong>
+                        </div>
+                        <div class="mt-2 text-warning">
+                            @for (int i = 0; i < temoignage.Note; i++)
+                            {
+                                <i class="bi bi-star-fill"></i>
+                            }
+                            @for (int i = temoignage.Note; i < 5; i++)
+                            {
+                                <i class="bi bi-star"></i>
+                            }
+                        </div>
+                        <strong class="d-block">@temoignage.ProduitNom</strong>
+                        <small class="text-muted">Évalué le @temoignage.Date.ToString("dd MMMM yyyy")</small>
+                        <p class="fst-italic">"@temoignage.Commentaire"</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- 7. Newsletter -->
+    <section class="animate-section container text-center newsletter">
+        <div class="section-heading">
+            <h2>Abonnez-vous à notre Newsletter</h2>
+        </div>
+        <p>Recevez nos conseils beauté et nos offres exclusives directement dans votre boîte mail.</p>
+        <form>
+            <input type="email" class="form-control w-50 mx-auto" placeholder="Votre email">
+            <button class="btn btn-primary mt-2">S'abonner</button>
+        </form>
+    </section>
+
+    <!-- 8. Contact -->
+    <div class="contact" style="padding: 50px 20px; background-color: #ffffff; text-align: center;">
+        <div class="container-fluid">
+            <h1>Contactez-nous</h1>
+            <p style="margin-bottom: 20px;">Besoin de nous contacter ? Remplissez le formulaire ci-dessous et nous vous répondrons dès que possible !</p>
+            <form action="https://formspree.io/f/mzzpgogp" method="POST" enctype="multipart/form-data" style="max-width: 600px; margin: 0 auto;">
+                <div style="margin-bottom: 20px;">
+                    <label for="name" style="display: block; font-weight: bold; margin-bottom: 5px;">Nom complet</label>
+                    <input type="text" id="name" name="name" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label for="email" style="display: block; font-weight: bold; margin-bottom: 5px;">Adresse e-mail</label>
+                    <input type="email" id="email" name="email" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label for="subject" style="display: block; font-weight: bold; margin-bottom: 5px;">Objet</label>
+                    <input type="text" id="subject" name="subject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label for="message" style="display: block; font-weight: bold; margin-bottom: 5px;">Votre message</label>
+                    <textarea id="message" name="message" rows="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2" style="border-radius: 5px; cursor: pointer;">Envoyer</button>
+            </form>
+        </div>
+    </div>
+    <!-- 9. Réseaux Sociaux -->
+    <section class="animate-section container text-center social-section">
+        <div class="section-heading">
+            <h2>Rejoignez-nous sur nos réseaux sociaux</h2>
+            <p>Suivez-nous pour rester informé de nos dernières actualités et offres.</p>
+        </div>
+        <a href="https://www.facebook.com/Cosmechic" target="_blank" style="text-decoration: none; color: #0d6efd; font-size: 1.5em;">
+            <i class="fab fa-facebook" style="margin-right: 10px;"></i>Facebook
+        </a>
+        <a href="https://www.instagram.com/Cosmechic" target="_blank" style="text-decoration: none; color: #B14646; font-size: 1.5em;">
+            <i class="fab fa-instagram" style="margin-right: 10px;"></i>Instagram
+        </a>
+        <a href="https://www.whatsapp.com/Cosmechic" target="_blank" style="text-decoration: none; color: #07af15; font-size: 1.5em;">
+            <i class="fab fa-whatsapp" style="margin-right: 10px;"></i>WhatsApp
+        </a>
+    </section>
+</div>

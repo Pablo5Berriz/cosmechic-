@@ -1,0 +1,207 @@
+﻿@{
+    ViewData["Title"] = "À Propos de nous";
+}
+
+<style>
+    /* Global */
+    body {
+        background-color: ghostwhite;
+        font-family: 'Merriweather Sans', sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Animation par défaut pour chaque section */
+    .animate-section {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    }
+        /* Quand la section devient visible, on déclenche l'animation */
+        .animate-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+    /* En-tête de page */
+    .page-header {
+        margin-top: 100px;
+    }
+
+    /* Style général des titres */
+    h1, h2 {
+        color: darkblue;
+    }
+
+    /* Section Histoire, Mission, Produits & Communauté */
+    section {
+        padding-top: 50px;
+        padding-bottom: 50px;
+    }
+
+    /* Images */
+    .img-fluid {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Section Équipe */
+    .team-img {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+    }
+</style>
+
+<!-- En-tête de page -->
+<section class="py-5 page-header animate-section">
+    <div class="container">
+        <div class="text-center">
+            <h1 class="fw-bold">@ViewData["Title"]</h1>
+            <p class="lead mt-3">Découvrez qui nous sommes et ce qui nous anime chez Cosmechic.</p>
+        </div>
+    </div>
+</section>
+<hr />
+
+<!-- Section 1: Notre Histoire -->
+<section class="animate-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- Image à gauche -->
+            <div class="col-md-6">
+                <img class="img-fluid rounded" src="~/images/about-history.jpg" alt="Notre Histoire" />
+            </div>
+            <!-- Texte à droite -->
+            <div class="col-md-6">
+                <h2 class="fw-bold">Notre Histoire</h2>
+                <p>
+                    Fondée en 2023 par Rissinatou Kabore, Cosmechic est née d'une passion pour la beauté authentique et le bien-être. Dès ses débuts, notre ambition a été de proposer des produits de soin innovants et de qualité, en valorisant l'excellence artisanale et une éthique irréprochable.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Section 2: Notre Mission -->
+<section class="animate-section bg-light">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- Texte à gauche -->
+            <div class="col-md-6 order-md-1">
+                <h2 class="fw-bold">Notre Mission</h2>
+                <p>
+                    Notre mission est de redéfinir la beauté en offrant des produits sûrs, efficaces et respectueux de l'environnement. Nous nous engageons à utiliser des ingrédients de haute qualité, sourcés de manière éthique, pour vous permettre de révéler votre éclat naturel.
+                </p>
+            </div>
+            <!-- Image à droite -->
+            <div class="col-md-6 order-md-2">
+                <img class="img-fluid rounded" src="~/images/about-mission.jpg" alt="Notre Mission" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Section 3: Nos Produits -->
+<section class="animate-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- Image à gauche -->
+            <div class="col-md-6">
+                <img class="img-fluid rounded" src="~/images/about-products.jpg" alt="Nos Produits" />
+            </div>
+            <!-- Texte à droite -->
+            <div class="col-md-6">
+                <h2 class="fw-bold">Nos Produits</h2>
+                <p>
+                    Nous proposons une large gamme de produits, des soins du visage aux produits capillaires, conçus pour répondre aux besoins spécifiques de chaque type de peau. Chaque formule est le fruit d'une recherche minutieuse, alliant tradition et innovation pour vous offrir le meilleur de la cosmétique.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Section 4: Rejoignez Notre Communauté -->
+<section class="animate-section bg-light">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- Texte à gauche -->
+            <div class="col-md-6 order-md-1">
+                <h2 class="fw-bold">Rejoignez Notre Communauté</h2>
+                <p>
+                    Chez Cosmechic, nous sommes plus qu'une marque : nous formons une communauté passionnée. Suivez-nous sur nos réseaux sociaux, participez à nos événements et partagez vos expériences pour contribuer à notre aventure collective dans le monde de la beauté.
+                </p>
+            </div>
+            <!-- Image à droite -->
+            <div class="col-md-6 order-md-2">
+                <img class="img-fluid rounded" src="~/images/about-community.jpg" alt="Rejoignez Notre Communauté" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Section Équipe -->
+<section class="animate-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold" style="color: #000080;">Notre Équipe</h2>
+            <p class="lead">Rencontrez les experts qui font de Cosmechic une référence en beauté.</p>
+        </div>
+        <div class="row gx-5 row-cols-1 row-cols-sm-2 row-cols-xl-4 justify-content-center">
+            <!-- Membre 1 -->
+            <div class="col mb-5">
+                <div class="text-center">
+                    <img class="img-fluid rounded-circle mb-3 team-img" src="~/images/team-member-1.jpg" alt="Rissinatou Kabore" />
+                    <h5 class="fw-bold">Rissinatou Kabore</h5>
+                    <p class="fst-italic text-muted mb-0">Founder &amp; CEO</p>
+                </div>
+            </div>
+            <!-- Membre 2 -->
+            <div class="col mb-5">
+                <div class="text-center">
+                    <img class="img-fluid rounded-circle mb-3 team-img" src="~/images/team-member-2.jpg" alt="Membre 2" />
+                    <h5 class="fw-bold">Nom Membre 2</h5>
+                    <p class="fst-italic text-muted mb-0">Directeur Marketing</p>
+                </div>
+            </div>
+            <!-- Membre 3 -->
+            <div class="col mb-5">
+                <div class="text-center">
+                    <img class="img-fluid rounded-circle mb-3 team-img" src="~/images/team-member-3.jpg" alt="Membre 3" />
+                    <h5 class="fw-bold">Nom Membre 3</h5>
+                    <p class="fst-italic text-muted mb-0">Responsable Produit</p>
+                </div>
+            </div>
+            <!-- Membre 4 -->
+            <div class="col mb-5">
+                <div class="text-center">
+                    <img class="img-fluid rounded-circle mb-3 team-img" src="~/images/team-member-4.jpg" alt="Membre 4" />
+                    <h5 class="fw-bold">Nom Membre 4</h5>
+                    <p class="fst-italic text-muted mb-0">Chargé de Communication</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    // Lorsque le DOM est prêt, on configure l'observer pour animer les sections
+    document.addEventListener('DOMContentLoaded', function () {
+        const sections = document.querySelectorAll('.animate-section');
+        const observerOptions = {
+            threshold: 0.1
+        };
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+    });
+</script>
