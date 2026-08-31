@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,10 @@ using Cosmechic.Models;
 
 namespace Cosmechic.Controllers
 {
+    // Aucune preuve dans le reste de l'application qu'un client gère directement des
+    // lignes de commande (OrderDetail) : ce controller est un CRUD scaffold administratif
+    // pur. Principe de moindre privilège : tout le controller devient Admin uniquement.
+    [Authorize(Roles = "Admin")]
     public class OrderDetailsController : Controller
     {
         private readonly CosmechicsContext _context;

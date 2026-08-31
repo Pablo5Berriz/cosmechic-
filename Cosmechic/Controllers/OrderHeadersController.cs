@@ -40,6 +40,7 @@ namespace Cosmechic.Controllers
 
 
         // GET: OrderHeaders/Details/5
+        // Un client ne peut consulter que sa propre commande ; Admin peut tout consulter.
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null || _context.OrderHeaders == null)
@@ -55,10 +56,20 @@ namespace Cosmechic.Controllers
                 return NotFound();
             }
 
+            if (!IsOwnerOrAdmin(orderHeader.ApplicationUserId))
+            {
+                return Forbid();
+            }
+
             return View(orderHeader);
         }
 
-        // GET: OrderHeaders/Create
+        // GET/POST: OrderHeaders/Create
+        // CRUD scaffold administratif : la création réelle d'une commande client passe par
+        // CartController.SummaryPOST, jamais par ici. Aucune preuve qu'un client doive
+        // pouvoir créer une commande arbitraire (avec ApplicationUserId, OrderStatus,
+        // PaymentStatus... librement choisis) : réservé à Admin.
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             ViewData["ApplicationUserId"] = new SelectList(_context.AspNetUsers, "Id", "Id");
@@ -69,6 +80,7 @@ namespace Cosmechic.Controllers
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,ApplicationUserId,OrderDate,ShippingDate,OrderTotal,OrderStatus,PaymentStatus,TrackingNumber,Carrier,PaymentDate,PaymentDueDate,SessionId,PaymentIntentId,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader orderHeader)
         {
@@ -83,6 +95,10 @@ namespace Cosmechic.Controllers
         }
 
         // GET: OrderHeaders/Edit/5
+        // CRUD scaffold administratif : un client ne doit pas pouvoir choisir librement
+        // OrderStatus/PaymentStatus/OrderTotal/SessionId/PaymentIntentId/ApplicationUserId
+        // de sa propre commande, encore moins de celle d'un autre. Réservé à Admin.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null || _context.OrderHeaders == null)
@@ -103,6 +119,7 @@ namespace Cosmechic.Controllers
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,ApplicationUserId,OrderDate,ShippingDate,OrderTotal,OrderStatus,PaymentStatus,TrackingNumber,Carrier,PaymentDate,PaymentDueDate,SessionId,PaymentIntentId,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader orderHeader)
         {
@@ -136,6 +153,9 @@ namespace Cosmechic.Controllers
         }
 
         // GET: OrderHeaders/Delete/5
+        // CRUD scaffold administratif : réservé à Admin, aucun client ne doit pouvoir
+        // supprimer une commande (la sienne ou celle d'un autre).
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null || _context.OrderHeaders == null)
@@ -156,6 +176,7 @@ namespace Cosmechic.Controllers
 
         // POST: OrderHeaders/Delete/5
         [HttpPost, ActionName("Delete")]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
@@ -176,6 +197,19 @@ namespace Cosmechic.Controllers
         private bool OrderHeaderExists(int id)
         {
             return (_context.OrderHeaders?.Any(e => e.Id == id)).GetValueOrDefault();
+        }
+
+        // Niveau 2 d'autorisation (ownership) : un utilisateur authentifié n'a le droit
+        // d'agir sur une commande que s'il en est le propriétaire, ou s'il est Admin.
+        private bool IsOwnerOrAdmin(string resourceApplicationUserId)
+        {
+            if (User.IsInRole("Admin"))
+            {
+                return true;
+            }
+
+            var currentUserId = _userManager.GetUserId(User);
+            return currentUserId != null && currentUserId == resourceApplicationUserId;
         }
     }
 }

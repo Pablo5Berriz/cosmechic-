@@ -6,7 +6,10 @@
 }
 
 <div class="container py-5 mt-5 mb-5" style="margin-top: 100px;">
-    <form method="post" class="container">
+    @* Ancien <form method="post"> englobant retiré : il ne ciblait aucune action et
+       aurait imbriqué les formulaires Plus/Minus/Remove ci-dessous (HTML invalide,
+       nécessaire pour leur conversion GET -> POST, COSMECHIC-SECURITY-001, section 13). *@
+    <div class="container">
         <div class="card my-5">
             <div class="card-header bg-secondary text-white">
                 <div class="row px-4">
@@ -33,10 +36,16 @@
                                 <span class="text-muted me-3">x</span>
                                 <span class="fw-bold">@item.Count</span>
                                 <div class="btn-group ms-3" role="group">
-                                    <a asp-action="plus" asp-route-cartId="@item.Id" class="btn btn-primary"><i class="bi bi-plus-square"></i></a>
-                                    <a asp-action="minus" asp-route-cartId="@item.Id" class="btn btn-primary"><i class="bi bi-dash-square"></i></a>
+                                    <form asp-action="Plus" asp-route-cartId="@item.Id" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-primary"><i class="bi bi-plus-square"></i></button>
+                                    </form>
+                                    <form asp-action="Minus" asp-route-cartId="@item.Id" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-primary"><i class="bi bi-dash-square"></i></button>
+                                    </form>
                                 </div>
-                                <a asp-action="remove" asp-route-cartId="@item.Id" class="btn btn-danger"><i class="bi bi-trash-fill"></i></a>
+                                <form asp-action="Remove" asp-route-cartId="@item.Id" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash-fill"></i></button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -60,5 +69,5 @@
                 </div>
             </div>
         </div>
-    </form>
+    </div>
 </div>

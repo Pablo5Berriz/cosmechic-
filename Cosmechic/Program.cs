@@ -1,5 +1,6 @@
 using Cosmechic.Data;
 using Cosmechic.Models;
+using Cosmechic.Services;
 using Cosmechic.Utility;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddScoped<IPaymentSessionService, StripePaymentSessionService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -60,3 +62,8 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
+
+// Rend la classe Program générée par les instructions de haut niveau accessible à
+// WebApplicationFactory<Program> pour les tests d'intégration (COSMECHIC-SECURITY-001).
+// N'affecte pas le comportement de l'application.
+public partial class Program { }

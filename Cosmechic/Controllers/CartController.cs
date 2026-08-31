@@ -1,5 +1,6 @@
 ﻿using Cosmechic.Models.ViewModels;
 using Cosmechic.Models;
+using Cosmechic.Services;
 using Cosmechic.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,10 +15,11 @@ namespace Cosmechic.Controllers
 
 	[Authorize]
 
-	public class CartController(CosmechicsContext context) : Controller
+	public class CartController(CosmechicsContext context, IPaymentSessionService paymentSessionService) : Controller
 	{
 
 		private CosmechicsContext _context = context;
+		private readonly IPaymentSessionService _paymentSessionService = paymentSessionService;
 
 		[BindProperty]
 
@@ -253,13 +255,26 @@ namespace Cosmechic.Controllers
 
 			OrderHeader orderHeader = _context.OrderHeaders.Where(u => u.Id == id).FirstOrDefault();
 
+			if (orderHeader == null)
+			{
+				return NotFound();
+			}
+
+			// Contrôle d'ownership obligatoire AVANT tout appel Stripe ou toute mutation :
+			// un utilisateur authentifié ne doit jamais pouvoir traiter la commande d'un
+			// autre utilisateur simplement en connaissant son id (IDOR, SEC-004).
+			var currentUserId = GetCurrentUserId();
+			var isOwner = currentUserId != null && currentUserId == orderHeader.ApplicationUserId;
+			if (!isOwner && !User.IsInRole("Admin"))
+			{
+				return Forbid();
+			}
+
 			if (orderHeader.PaymentStatus != SD.PaymentStatusDelayedPayment)
 
 			{
 
-				var service = new SessionService();
-
-				Session session = service.Get(orderHeader.SessionId);
+				Session session = _paymentSessionService.Get(orderHeader.SessionId);
 
 				if (session.PaymentStatus.ToLower() == "paid")
 
@@ -325,11 +340,26 @@ namespace Cosmechic.Controllers
 		}
 
 
+		// Plus/Minus/Remove mutaient l'état via GET (aucune protection CSRF possible) et ne
+		// vérifiaient jamais que le panier ciblé appartenait à l'appelant. Les deux défauts
+		// sont corrigés ensemble : passage en POST + antiforgery, et la requête encode
+		// directement le périmètre autorisé (Id == cartId AND ApplicationUserId == currentUserId)
+		// au lieu d'un FirstOrDefault(Id == cartId) suivi d'un contrôle a posteriori.
+		[HttpPost]
+		[ValidateAntiForgeryToken]
 		public IActionResult Plus(int cartId)
 
 		{
 
-			var cartFromDb = _context.ShoppingCarts.Where(u => u.Id == cartId).FirstOrDefault();
+			var currentUserId = GetCurrentUserId();
+
+			var cartFromDb = _context.ShoppingCarts
+				.FirstOrDefault(u => u.Id == cartId && u.ApplicationUserId == currentUserId);
+
+			if (cartFromDb == null)
+			{
+				return NotFound();
+			}
 
 			cartFromDb.Count += 1;
 
@@ -341,11 +371,21 @@ namespace Cosmechic.Controllers
 
 		}
 
+		[HttpPost]
+		[ValidateAntiForgeryToken]
 		public IActionResult Minus(int cartId)
 
 		{
 
-			var cartFromDb = _context.ShoppingCarts.Where(u => u.Id == cartId).FirstOrDefault();
+			var currentUserId = GetCurrentUserId();
+
+			var cartFromDb = _context.ShoppingCarts
+				.FirstOrDefault(u => u.Id == cartId && u.ApplicationUserId == currentUserId);
+
+			if (cartFromDb == null)
+			{
+				return NotFound();
+			}
 
 			if (cartFromDb.Count <= 1)
 
@@ -375,11 +415,21 @@ namespace Cosmechic.Controllers
 
 		}
 
+		[HttpPost]
+		[ValidateAntiForgeryToken]
 		public IActionResult Remove(int cartId)
 
 		{
 
-			var cartFromDb = _context.ShoppingCarts.Where(u => u.Id == cartId).FirstOrDefault();
+			var currentUserId = GetCurrentUserId();
+
+			var cartFromDb = _context.ShoppingCarts
+				.FirstOrDefault(u => u.Id == cartId && u.ApplicationUserId == currentUserId);
+
+			if (cartFromDb == null)
+			{
+				return NotFound();
+			}
 
 			_context.ShoppingCarts.Remove(cartFromDb);
 
@@ -399,6 +449,11 @@ namespace Cosmechic.Controllers
 
 			return Convert.ToInt64(shoppingCart.Produit.Prix);
 
+		}
+
+		private string? GetCurrentUserId()
+		{
+			return (User.Identity as ClaimsIdentity)?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 		}
 
 	}

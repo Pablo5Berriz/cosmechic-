@@ -36,6 +36,7 @@ namespace Cosmechic.Controllers
         }
 
         // GET: AspNetUsers/Details/5
+        // Un client ne peut consulter que son propre profil ; Admin peut tout consulter.
         public async Task<IActionResult> Details(string id)
         {
             if (id == null || _context.AspNetUsers == null)
@@ -50,10 +51,19 @@ namespace Cosmechic.Controllers
                 return NotFound();
             }
 
+            if (!IsSelfOrAdmin(aspNetUser.Id))
+            {
+                return Forbid();
+            }
+
             return View(aspNetUser);
         }
 
         // GET: AspNetUsers/Create
+        // Insertion directe dans la table Identity, hors UserManager (donc hors hachage de
+        // mot de passe) : ce n'est pas le mécanisme d'inscription réel (Areas/Identity/Account/Register).
+        // Aucune preuve qu'un client doive pouvoir créer un compte par ce biais : Admin uniquement.
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View();
@@ -63,6 +73,7 @@ namespace Cosmechic.Controllers
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,UserName,Email, PhoneNumber, StreetAddress,City,State,PostalCode")] AspNetUser aspNetUser)
         {
@@ -140,8 +151,12 @@ namespace Cosmechic.Controllers
             return View(aspNetUser);
         }
 
-        
+
         // GET: AspNetUsers/Delete/5
+        // Aucune preuve qu'un client doive pouvoir supprimer un compte (le sien ou celui
+        // d'un autre) par ce controller — la suppression du propre compte passe par
+        // Areas/Identity/Account/Manage/DeletePersonalData. Réservé à Admin.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
         {
             if (id == null || _context.AspNetUsers == null)
@@ -161,6 +176,7 @@ namespace Cosmechic.Controllers
 
         // POST: AspNetUsers/Delete/5
         [HttpPost, ActionName("Delete")]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
@@ -181,6 +197,19 @@ namespace Cosmechic.Controllers
         private bool AspNetUserExists(string id)
         {
           return (_context.AspNetUsers?.Any(e => e.Id == id)).GetValueOrDefault();
+        }
+
+        // Niveau 2 d'autorisation (ownership) : un utilisateur ne peut agir sur un profil
+        // que si c'est le sien, ou s'il est Admin.
+        private bool IsSelfOrAdmin(string resourceUserId)
+        {
+            if (User.IsInRole("Admin"))
+            {
+                return true;
+            }
+
+            var currentUserId = _userManager.GetUserId(User);
+            return currentUserId != null && currentUserId == resourceUserId;
         }
 
         // GET: Utilisateurs/Dashboard
@@ -278,6 +307,9 @@ namespace Cosmechic.Controllers
             return totalClients;
         }
 
+        // Contenu de tableau de bord administratif (mêmes exigences d'accès que Dashboard) :
+        // ne doit pas être accessible à un client ordinaire.
+        [Authorize(Roles = "Admin")]
         public IActionResult Diagrammes()
         {
             var revenueData = GetRevenueData();
