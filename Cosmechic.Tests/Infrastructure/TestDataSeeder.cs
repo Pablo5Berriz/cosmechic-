@@ -58,6 +58,10 @@ namespace Cosmechic.Tests.Infrastructure
                     Stock = 10,
                     Disponible = true,
                     Image = "produit.jpg",
+                    // Le fournisseur InMemory ne génère pas les colonnes rowversion
+                    // automatiquement comme le ferait SQL Server ; valeur factice requise
+                    // uniquement pour les tests (COSMECHIC-DATA-001).
+                    RowVersion = new byte[] { 0, 0, 0, 0, 0, 0, 0, 1 },
                 };
                 context.Produits.Add(produit);
 

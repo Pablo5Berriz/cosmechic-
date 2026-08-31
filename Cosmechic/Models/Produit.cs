@@ -23,6 +23,12 @@ public partial class Produit
 
     public int NombreVentes { get; set; }
 
+    // Préparation COSMECHIC-DATA-001 pour COSMECHIC-ECOM-CORE-001 : jeton de concurrence
+    // optimiste, nécessaire pour empêcher deux commandes concurrentes de survendre le
+    // dernier exemplaire d'un produit (aucune logique de réservation/décrément n'est
+    // ajoutée dans ce lot, seul le champ est préparé).
+    public byte[] RowVersion { get; set; } = null!;
+
     public virtual ICollection<Avi> Avis { get; set; } = new List<Avi>();
 
     public virtual Category Categorie { get; set; } = null!;
