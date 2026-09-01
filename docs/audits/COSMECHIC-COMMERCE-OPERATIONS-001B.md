@@ -151,3 +151,123 @@ MIGRATION_MODEL_DRIFT=NONE (ApplicationDbContext et CosmechicsContext)
 DATABASE_RECONSTRUCTIBLE=YES (validé sur SQL Server 2022 jetable, empty DB → migrations Identity → migrations CosmechicsContext, y compris le remappage de données historiques)
 SECRET_SCAN=CLEAN
 ```
+
+## 14. Annexe de clôture (COSMECHIC-COMMERCE-OPERATIONS-001B-CLOSURE-1)
+
+Le rapport final de 001B a été retourné avec deux réserves PM avant validation. Cette
+annexe documente leur fermeture, réalisée sur le commit `6276e27` (aucun nouveau
+changement de modèle/migration, uniquement contrôleur/vue/tests).
+
+### 14.1 Réserve 1 — recertification `OrderHeadersController.Edit`
+
+L'audit avait déjà corrigé le risque d'overposting (section 9) en narrowant le `[Bind]`
+et en copiant explicitement les champs autorisés plutôt que d'appeler `Update()` sur
+l'entité liée. La recertification a révélé **deux défauts supplémentaires non détectés
+au moment du rapport final**, tous deux corrigés dans cette clôture :
+
+1. **Vue non alignée sur le `[Bind]`.** `Views/OrderHeaders/Edit.cshtml` continuait
+   d'afficher des champs de formulaire pour `OrderTotal`/`OrderStatus`/`PaymentStatus`/
+   `TrackingNumber` — non présents dans le `[Bind]`, donc silencieusement ignorés par le
+   POST, mais présentés à l'admin comme éditables. Corrigé : ces valeurs sont désormais
+   affichées en lecture seule (`<dl>`), et le formulaire ne porte plus que les champs
+   réellement mutables (Name/PhoneNumber/StreetAddress/City/State/PostalCode).
+2. **Régression fonctionnelle du `[Bind]` narrowé lui-même.** Le projet a `Nullable`
+   activé, donc ASP.NET Core applique une validation "Required" implicite à toute
+   propriété référence non-nullable de l'entité liée — y compris `ApplicationUserId`,
+   qui n'est jamais posté puisqu'il n'est pas dans le `[Bind]`. Conséquence :
+   `ModelState.IsValid` était **systématiquement false**, y compris pour une modification
+   entièrement légitime (changer le nom/l'adresse d'un client) — l'action était cassée
+   pour tout usage, pas seulement pour une tentative de sabotage. Ce défaut n'existait
+   dans aucun test antérieur (le seul test `Edit` existant ne couvrait que
+   l'autorisation GET, jamais un POST admin mené jusqu'au bout). Corrigé en liant l'action
+   à un DTO étroit dédié (`OrderHeaderEditInput`, `Models/ViewModels/`) plutôt qu'à
+   l'entité `OrderHeader` elle-même — plus de validation "Required" fantôme sur des
+   champs hors formulaire.
+
+Un test de régression (`OrderHeadersControllerTests.Edit_AdminPost_CannotTamperWithFinancialSnapshotOrStatus`)
+poste `OrderTotal=999999.99`, `OrderStatus=Completed`, `PaymentStatus=Refunded` et
+`ApplicationUserId=<autre client>` aux côtés des champs légitimes, et vérifie : (a)
+succès applicatif (302) sur les champs autorisés, (b) `OrderTotal`/`OrderStatus`/
+`PaymentStatus`/`ApplicationUserId` strictement inchangés en base après coup.
+
+```
+ORDER_ADMIN_GENERIC_EDIT_EXISTS=YES (OrderHeadersController.Edit, Admin uniquement)
+ORDER_TOTAL_FORM_BINDABLE=NO
+ORDER_STATUS_FORM_BINDABLE=NO
+PAYMENT_STATUS_FORM_BINDABLE=NO
+FINANCIAL_SNAPSHOT_FORM_BINDABLE=NO (Subtotal/ShippingAmount/TaxAmount/DiscountAmount/OrderTotal absents du DTO OrderHeaderEditInput et du formulaire)
+ORDER_ADMIN_RAW_EDIT_RECERTIFIED=YES
+```
+
+Recherche exhaustive de toute mutation directe (`.OrderTotal =`, `.OrderStatus =`,
+`.PaymentStatus =`, `.FulfillmentStatus =`, `.Subtotal =`, `.ShippingAmount =`,
+`.TaxAmount =`, `.DiscountAmount =`) dans `Cosmechic/` : les seuls sites restent
+`OrderCheckoutService` (création, une seule fois) et `OrderLifecycleService` (seul
+point de transition des statuts) — aucun controller ne mute ces champs directement.
+`OrderHeadersController.Create` reste narrowé de la même façon (aucun champ financier/
+statut bindable) ; son `ApplicationUserId` n'étant pas non plus dans le `[Bind]`, cette
+action de scaffold reste — comme déjà noté en 001B — fonctionnellement inerte
+(`ModelState` invalide sur toute soumission), ce qui est jugé acceptable puisqu'aucun
+flux légitime de création de commande admin n'existe (COMMERCE-001A/001B). Non modifié
+dans cette clôture : hors du périmètre des deux réserves, et déjà sans risque de
+tampering.
+
+### 14.2 Réserve 2 — fuite d'artefacts de test (`wwwroot/Images_Produits`)
+
+**Reproduction.** `CatalogAdminTests` poste de vraies images via `MultipartFormDataContent`
+à travers le pipeline HTTP réel (`CustomWebApplicationFactory` réutilise le véritable
+`Program.cs`). `ImageUploadServiceTests`, à l'inverse, instancie
+`ProductImageUploadService` directement avec un `IWebHostEnvironment` factice pointant
+vers `Directory.CreateTempSubdirectory()` — déjà correctement isolé, jamais la source de
+la fuite. `CustomWebApplicationFactory` ne surchargeait pas `IWebHostEnvironment`, donc
+`WebApplicationFactory<Program>` résolvait le vrai `wwwroot` du projet ; 3 fichiers
+constatés après une exécution ciblée (`git status --short` avant/après).
+
+**Root cause.** `ProductImageUploadService` est le seul consommateur de
+`IWebHostEnvironment.WebRootPath` côté production ; en test HTTP de bout en bout, ce
+`WebRootPath` résolvait vers le vrai `Cosmechic/wwwroot`.
+
+**Correctif d'infrastructure de test (pas de comportement produit modifié).**
+`Cosmechic.Tests/Infrastructure/IsolatedWebRootEnvironment.cs` (nouveau) : décorateur
+`IWebHostEnvironment` qui ne dévie que `WebRootPath` vers un répertoire temporaire
+jetable ; `WebRootFileProvider` reste délégué à l'environnement réel (fichiers statiques
+existants non affectés). `CustomWebApplicationFactory` crée un répertoire
+`Directory.CreateTempSubdirectory("cosmechic-test-webroot-")` unique par instance,
+récupère l'instance `IWebHostEnvironment` déjà enregistrée par le host générique
+(`services.Last(d => d.ServiceType == typeof(IWebHostEnvironment) && d.ImplementationInstance != null)`),
+la remplace par le décorateur, et supprime le répertoire de façon déterministe dans
+`Dispose(bool disposing)` (pas de dépendance à un GC/finalizer). Aucun autre test
+n'accède au contenu réel de `wwwroot` via cette factory (vérifié par recherche
+exhaustive de `File.Exists`/`WebRootPath` dans `Cosmechic.Tests/`).
+
+```
+TEST_ARTIFACT_LEAK_BEFORE=REPRODUCED (3 fichiers .jpg créés sous Cosmechic/wwwroot/Images_Produits/ par CatalogAdminTests, git status avant/après)
+TEST_ARTIFACT_ROOT_CAUSE=CustomWebApplicationFactory ne surchargeait pas IWebHostEnvironment.WebRootPath ; le pipeline HTTP réel écrivait donc dans le vrai wwwroot du projet
+TEST_INFRA_FIX=IsolatedWebRootEnvironment (décorateur) + répertoire temporaire jetable par instance de factory + suppression déterministe dans Dispose(bool)
+PRODUCTION_UPLOAD_CODE_CHANGED=NO (ProductImageUploadService inchangé)
+TEST_RUN_1_ARTIFACTS=0
+TEST_RUN_2_ARTIFACTS=0
+FULL_SUITE_ARTIFACTS=0
+```
+
+### 14.3 Gates finaux de clôture
+
+```
+TESTS_BEFORE=239
+TESTS_AFTER=240 (nouveau test de régression overposting)
+TESTS_PASS=240
+TESTS_FAIL=0
+SQL_SERVER_REFUND_CONCURRENCY=PASS
+SQL_SERVER_RESTOCK_CONCURRENCY=PASS
+SQL_SERVER_TRANSACTION=PASS (contrainte CHECK, solde exact accepté)
+BUILD=PASS (0 erreur, Release, --no-incremental)
+WARNINGS_BEFORE=102, WARNINGS_AFTER=102 (mêmes comptes exacts par code : CS8618:50, CS8602:18, CS8600:12, CS8604:6, CS8625:4, CS8601:4, ASP0019:4, CS8619:2, CS1998:2)
+NEW_CODE_WARNINGS=0
+NUGET_CRITICAL=0, NUGET_HIGH=0, NUGET_MODERATE=0, NUGET_LOW=0
+MODEL_MIGRATION_DRIFT=NONE (aucun changement de modèle EF dans cette clôture)
+MIGRATIONS_CREATED=0
+SECRET_SCAN=CLEAN
+OUT_OF_SCOPE_CHANGES=0
+PRODUCTION_TOUCHED=NO
+REAL_STRIPE_USED=NO
+```

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Cosmechic.Models;
+using Cosmechic.Models.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 
@@ -118,21 +119,20 @@ namespace Cosmechic.Controllers
         }
 
         // POST: OrderHeaders/Edit/5
-        // COSMECHIC-COMMERCE-OPERATIONS-001B (audit section 5/8/54) : narrowé à l'adresse de
-        // livraison/nom/téléphone uniquement — OrderStatus/PaymentStatus/FulfillmentStatus/
-        // OrderTotal/SessionId/PaymentIntentId/ApplicationUserId ne sont plus jamais
-        // modifiables ici (seule IOrderLifecycleService et les actions dédiées
+        // COSMECHIC-COMMERCE-OPERATIONS-001B-CLOSURE-1 : lié à un DTO étroit
+        // (OrderHeaderEditInput) plutôt qu'à l'entité OrderHeader elle-même —
+        // OrderStatus/PaymentStatus/FulfillmentStatus/OrderTotal/SessionId/PaymentIntentId/
+        // ApplicationUserId ne sont plus jamais modifiables ici, et n'existant pas sur le
+        // DTO, ne déclenchent plus non plus de validation "Required" implicite fantôme
+        // (le [Bind] narrowé précédent sur OrderHeader laissait ModelState invalider
+        // systématiquement l'action à cause d'ApplicationUserId jamais posté — voir audit
+        // de clôture). Seule IOrderLifecycleService et les actions dédiées
         // d'OrderOperationsController peuvent faire transiter un statut ; OrderTotal et le
-        // reste du snapshot financier sont immuables après création, section 80).
-        //
-        // _context.Update(orderHeader) sur l'entité liée (contenant désormais uniquement les
-        // champs narrowés, le reste à leur valeur CLR par défaut) écraserait silencieusement
-        // OrderStatus/OrderTotal/etc. avec null/0 — on charge donc l'entité existante et on
-        // n'y reporte que les champs explicitement autorisés.
+        // reste du snapshot financier sont immuables après création (section 80).
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader posted)
+        public async Task<IActionResult> Edit(int id, OrderHeaderEditInput posted)
         {
             if (id != posted.Id)
             {
@@ -171,8 +171,14 @@ namespace Cosmechic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ApplicationUserId"] = new SelectList(_context.AspNetUsers, "Id", "Id", posted.ApplicationUserId);
-            return View(posted);
+
+            var reloaded = await _context.OrderHeaders.FindAsync(id);
+            if (reloaded == null)
+            {
+                return NotFound();
+            }
+            ViewData["ApplicationUserId"] = new SelectList(_context.AspNetUsers, "Id", "Id", reloaded.ApplicationUserId);
+            return View(reloaded);
         }
 
         // GET: OrderHeaders/Delete/5

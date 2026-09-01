@@ -29,9 +29,24 @@
     <div class="row">
         <div class="col-md-8">
             <div class="p-3 py-5">
+                @* COSMECHIC-COMMERCE-OPERATIONS-001B-CLOSURE-1 : ce formulaire ne doit
+                   présenter aucun champ qu'il n'accepte pas réellement en écriture. Le
+                   snapshot financier (OrderTotal) et les statuts (OrderStatus/PaymentStatus/
+                   FulfillmentStatus) ne sont plus modifiables par ce POST (voir
+                   OrderHeadersController.Edit) : ils sont affichés en lecture seule pour le
+                   contexte, jamais dans des champs de formulaire. Toute transition de statut
+                   passe exclusivement par IOrderLifecycleService via OrderOperationsController. *@
+                <dl class="row text-start mb-4">
+                    <dt class="col-sm-4">Total de la commande</dt>
+                    <dd class="col-sm-8">@Model.OrderTotal.ToString("0.00") CAD</dd>
+                    <dt class="col-sm-4">Statut de la commande</dt>
+                    <dd class="col-sm-8">@Model.OrderStatus</dd>
+                    <dt class="col-sm-4">Statut du paiement</dt>
+                    <dd class="col-sm-8">@Model.PaymentStatus</dd>
+                </dl>
                 <form asp-action="Edit">
                     <div class="row mt-2">
-                        <div asp-validation-summary="ModelOnly" class="text-danger col-12">Numéro de commande</div>
+                        <div asp-validation-summary="ModelOnly" class="text-danger col-12"></div>
                         <input type="hidden" asp-for="Id" />
                         <div class="row mt-2">
                             <label asp-for="Name" class="control-label">Nom du client</label>
@@ -39,29 +54,29 @@
                             <span asp-validation-for="Name" class="text-danger"></span>
                         </div>
                         <div class="row mt-2">
-                            <label asp-for="OrderDate" class="control-label">Date de la commande</label>
-                            <input asp-for="OrderDate" class="form-control" />
-                            <span asp-validation-for="OrderDate" class="text-danger"></span>
+                            <label asp-for="PhoneNumber" class="control-label">Téléphone</label>
+                            <input asp-for="PhoneNumber" class="form-control" />
+                            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
                         </div>
                         <div class="row mt-2">
-                            <label asp-for="OrderTotal" class="control-label">Total de la commande</label>
-                            <input asp-for="OrderTotal" class="form-control" />
-                            <span asp-validation-for="OrderTotal" class="text-danger"></span>
+                            <label asp-for="StreetAddress" class="control-label">Adresse</label>
+                            <input asp-for="StreetAddress" class="form-control" />
+                            <span asp-validation-for="StreetAddress" class="text-danger"></span>
                         </div>
                         <div class="row mt-2">
-                            <label asp-for="OrderStatus" class="control-label">Statut de la commande</label>
-                            <input asp-for="OrderStatus" class="form-control" />
-                            <span asp-validation-for="OrderStatus" class="text-danger"></span>
+                            <label asp-for="City" class="control-label">Ville</label>
+                            <input asp-for="City" class="form-control" />
+                            <span asp-validation-for="City" class="text-danger"></span>
                         </div>
                         <div class="row mt-2">
-                            <label asp-for="PaymentStatus" class="control-label">Statut du paiement</label>
-                            <input asp-for="PaymentStatus" class="form-control" />
-                            <span asp-validation-for="PaymentStatus" class="text-danger"></span>
+                            <label asp-for="State" class="control-label">Province</label>
+                            <input asp-for="State" class="form-control" />
+                            <span asp-validation-for="State" class="text-danger"></span>
                         </div>
                         <div class="row mt-2">
-                            <label asp-for="TrackingNumber" class="control-label">Numéro de suivi</label>
-                            <input asp-for="TrackingNumber" class="form-control" />
-                            <span asp-validation-for="TrackingNumber" class="text-danger"></span>
+                            <label asp-for="PostalCode" class="control-label">Code postal</label>
+                            <input asp-for="PostalCode" class="form-control" />
+                            <span asp-validation-for="PostalCode" class="text-danger"></span>
                         </div>
                         <div class="mt-5 text-center">
                             <a class="btn btn-secondary" asp-action="Index">Annuler</a>

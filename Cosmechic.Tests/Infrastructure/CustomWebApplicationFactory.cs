@@ -27,6 +27,14 @@ namespace Cosmechic.Tests.Infrastructure
 
         private readonly string _dbName = Guid.NewGuid().ToString();
 
+        // COSMECHIC-COMMERCE-OPERATIONS-001B-CLOSURE-1 : répertoire jetable dédié à cette
+        // instance de factory, substitué à IWebHostEnvironment.WebRootPath (voir
+        // IsolatedWebRootEnvironment) pour que les tests HTTP qui téléversent réellement un
+        // fichier (CatalogAdminTests) n'écrivent plus jamais dans le vrai
+        // Cosmechic/wwwroot — supprimé de façon déterministe dans Dispose(bool), sans
+        // dépendre d'un nettoyage manuel après coup.
+        private readonly string _isolatedWebRoot = Directory.CreateTempSubdirectory("cosmechic-test-webroot-").FullName;
+
         public FakeStripeCheckoutService StripeCheckoutService { get; } = new();
         public FakeStripeRefundService StripeRefundService { get; } = new();
         public FakeEmailSender EmailSender { get; } = new();
@@ -64,7 +72,35 @@ namespace Cosmechic.Tests.Infrastructure
 
                 services.AddAuthentication(TestAuthHandler.SchemeName)
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+
+                // Le host générique enregistre IWebHostEnvironment comme instance
+                // singleton (parfois via plusieurs descripteurs pointant vers la même
+                // instance concrète) avant l'exécution de ce délégué : on récupère la
+                // dernière instance déjà résolue pour ne dévier que WebRootPath, en
+                // laissant WebRootFileProvider (fichiers statiques réels) intact.
+                var realEnvironment = (IWebHostEnvironment)services
+                    .Last(d => d.ServiceType == typeof(IWebHostEnvironment) && d.ImplementationInstance != null)
+                    .ImplementationInstance!;
+                services.RemoveAll<IWebHostEnvironment>();
+                services.AddSingleton<IWebHostEnvironment>(new IsolatedWebRootEnvironment(realEnvironment, _isolatedWebRoot));
             });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+
+            if (disposing)
+            {
+                try
+                {
+                    Directory.Delete(_isolatedWebRoot, recursive: true);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Rien téléversé durant ce test, ou déjà nettoyé : rien à faire.
+                }
+            }
         }
 
         private static void ReplaceDbContext<TContext>(IServiceCollection services, string dbName)
