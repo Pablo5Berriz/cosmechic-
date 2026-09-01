@@ -1,0 +1,43 @@
+@model IEnumerable<Cosmechic.Models.ShippingMethod>
+
+@{
+    ViewData["Title"] = "Méthodes de livraison";
+    if (User.IsInRole("Admin"))
+    {
+        Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    }
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"]</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Ajouter une méthode de livraison</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Prix</th>
+            <th>Seuil gratuit</th>
+            <th>Active</th>
+            <th>Ordre</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var method in Model)
+        {
+            <tr>
+                <td>@method.Name</td>
+                <td>@method.Price.ToString("0.00") CAD</td>
+                <td>@(method.FreeShippingThreshold.HasValue ? method.FreeShippingThreshold.Value.ToString("0.00") + " CAD" : "—")</td>
+                <td>@(method.IsActive ? "Oui" : "Non")</td>
+                <td>@method.SortOrder</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@method.ShippingMethodId" class="btn btn-sm btn-outline-primary">Modifier</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

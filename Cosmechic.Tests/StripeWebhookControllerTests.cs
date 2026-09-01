@@ -52,6 +52,7 @@ namespace Cosmechic.Tests
                     ApplicationUserId = "user-webhook-test",
                     OrderDate = DateTime.UtcNow,
                     OrderTotal = prix * count,
+                    Subtotal = prix * count,
                     OrderStatus = SD.StatusPending,
                     PaymentStatus = SD.PaymentStatusPending,
                     SessionId = sessionId,

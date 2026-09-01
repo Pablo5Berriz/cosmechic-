@@ -15,6 +15,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
+builder.Services.AddScoped<IShippingCalculator, ShippingCalculator>();
+builder.Services.AddScoped<ITaxCalculator, TaxCalculator>();
 builder.Services.AddScoped<ICheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IStripeFulfillmentService, StripeFulfillmentService>();
 
@@ -165,6 +167,23 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogWarning(ex, "Rétro-remplissage catalogue ignoré au démarrage (base injoignable ou non migrée).");
+    }
+}
+
+// COSMECHIC-COMMERCE-OPERATIONS-001A (section 5) : amorçage des méthodes de livraison et
+// taux de taxe par défaut, mêmes garanties que le rétro-remplissage catalogue ci-dessus
+// (idempotent, jamais bloquant au démarrage).
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var commerceContext = scope.ServiceProvider.GetRequiredService<CosmechicsContext>();
+        var seedLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("CommerceSeed");
+        await CommerceSeedService.RunAsync(commerceContext, seedLogger);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Amorçage commerce (livraison/taxes) ignoré au démarrage (base injoignable ou non migrée).");
     }
 }
 

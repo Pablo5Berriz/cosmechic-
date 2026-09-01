@@ -180,6 +180,95 @@ namespace Cosmechic.Tests
             }
         }
 
+        // COSMECHIC-COMMERCE-OPERATIONS-001A (section 45/47) : l'invariant financier
+        // Subtotal + ShippingAmount + TaxAmount - DiscountAmount = OrderTotal est vérifié
+        // par une contrainte CHECK au niveau moteur (CK_OrderHeaders_Total_Equals_Components),
+        // pas seulement par le code C# — une ligne incohérente doit être rejetée même en
+        // écrivant directement en base.
+        private static async Task<string> SeedCustomerAsync(CosmechicsContext context)
+        {
+            var userId = $"user-{Guid.NewGuid():N}";
+            context.AspNetUsers.Add(new AspNetUser { Id = userId, UserName = userId, Email = $"{userId}@test.local" });
+            await context.SaveChangesAsync();
+            return userId;
+        }
+
+        private static OrderHeader BuildOrderHeader(string userId, decimal subtotal, decimal shipping, decimal tax, decimal discount, decimal orderTotal) => new()
+        {
+            ApplicationUserId = userId,
+            OrderDate = DateTime.UtcNow,
+            ShippingDate = DateTime.UtcNow,
+            Subtotal = subtotal,
+            ShippingAmount = shipping,
+            TaxAmount = tax,
+            DiscountAmount = discount,
+            OrderTotal = orderTotal,
+            OrderStatus = "Pending",
+            PaymentStatus = "Pending",
+            PhoneNumber = "5145551234",
+            StreetAddress = "1 rue Test",
+            City = "Montreal",
+            State = "QC",
+            PostalCode = "H0H0H0",
+            Name = "Test",
+            PaymentDate = DateTime.UtcNow,
+            PaymentDueDate = DateTime.UtcNow,
+        };
+
+        [Fact]
+        public async Task OrderHeader_InconsistentTotal_IsRejectedByCheckConstraint()
+        {
+            if (SkipIfUnavailable()) return;
+
+            using var context = _fixture.CreateBusinessContext();
+            var userId = await SeedCustomerAsync(context);
+
+            // 50 + 15 + 7.49 - 0 = 72.49, mais OrderTotal prétend 0.01 : doit être rejeté.
+            context.OrderHeaders.Add(BuildOrderHeader(userId, subtotal: 50.00m, shipping: 15.00m, tax: 7.49m, discount: 0m, orderTotal: 0.01m));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+        }
+
+        [Fact]
+        public async Task OrderHeader_ConsistentTotal_IsAccepted()
+        {
+            if (SkipIfUnavailable()) return;
+
+            using var context = _fixture.CreateBusinessContext();
+            var userId = await SeedCustomerAsync(context);
+
+            context.OrderHeaders.Add(BuildOrderHeader(userId, subtotal: 50.00m, shipping: 15.00m, tax: 7.49m, discount: 0m, orderTotal: 72.49m));
+
+            await context.SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task ShippingMethod_InactiveMethod_CanStillBeReferencedByHistoricalOrder()
+        {
+            if (SkipIfUnavailable()) return;
+
+            using var context = _fixture.CreateBusinessContext();
+            var userId = await SeedCustomerAsync(context);
+
+            var method = new ShippingMethod { Name = $"Méthode-{Guid.NewGuid():N}", Price = 15.00m, IsActive = true, SortOrder = 1 };
+            context.ShippingMethods.Add(method);
+            await context.SaveChangesAsync();
+
+            var order = BuildOrderHeader(userId, subtotal: 10.00m, shipping: 15.00m, tax: 0m, discount: 0m, orderTotal: 25.00m);
+            order.ShippingMethodId = method.ShippingMethodId;
+            order.ShippingMethodName = method.Name;
+            context.OrderHeaders.Add(order);
+            await context.SaveChangesAsync();
+
+            // La méthode est désactivée après coup (ne devrait jamais casser l'historique :
+            // FK_OrderHeaders_ShippingMethods en Restrict, jamais Cascade).
+            method.IsActive = false;
+            await context.SaveChangesAsync();
+
+            var reloadedOrder = await context.OrderHeaders.AsNoTracking().SingleAsync(o => o.Id == order.Id);
+            Assert.Equal(method.ShippingMethodId, reloadedOrder.ShippingMethodId);
+        }
+
         [Fact]
         public async Task Produit_Prix_RoundTripsThroughMoneyColumn()
         {

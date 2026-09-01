@@ -1,0 +1,47 @@
+@model IEnumerable<Cosmechic.Models.TaxRate>
+
+@{
+    ViewData["Title"] = "Taux de taxe";
+    if (User.IsInRole("Admin"))
+    {
+        Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    }
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"]</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Ajouter un taux de taxe</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Juridiction</th>
+            <th>Pays</th>
+            <th>Région</th>
+            <th>Taux</th>
+            <th>Effectif du</th>
+            <th>Effectif jusqu'au</th>
+            <th>Actif</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var rate in Model)
+        {
+            <tr>
+                <td>@rate.Jurisdiction</td>
+                <td>@rate.CountryCode</td>
+                <td>@(rate.RegionCode ?? "—")</td>
+                <td>@((rate.Rate * 100).ToString("0.###")) %</td>
+                <td>@rate.EffectiveFrom.ToShortDateString()</td>
+                <td>@(rate.EffectiveTo.HasValue ? rate.EffectiveTo.Value.ToShortDateString() : "—")</td>
+                <td>@(rate.IsActive ? "Oui" : "Non")</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@rate.TaxRateId" class="btn btn-sm btn-outline-primary">Modifier</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

@@ -50,6 +50,8 @@ namespace Cosmechic.Controllers
 
             var orderHeader = await _context.OrderHeaders
                 .Include(o => o.ApplicationUser)
+                .Include(o => o.OrderDetails)
+                .Include(o => o.ShippingMethod)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (orderHeader == null)
             {

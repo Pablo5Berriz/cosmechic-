@@ -1,0 +1,62 @@
+@model Cosmechic.Models.ShippingMethod
+
+@{
+    ViewData["Title"] = "Ajouter une méthode de livraison";
+    if (User.IsInRole("Admin"))
+    {
+        Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    }
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"]</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group mb-3">
+                <label asp-for="Name" class="control-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="Description" class="control-label"></label>
+                <input asp-for="Description" class="form-control" />
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="Price" class="control-label"></label>
+                <input asp-for="Price" class="form-control" />
+                <span asp-validation-for="Price" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="FreeShippingThreshold" class="control-label"></label>
+                <input asp-for="FreeShippingThreshold" class="form-control" />
+                <small class="form-text text-muted">Laisser vide : pas de livraison gratuite pour cette méthode.</small>
+                <span asp-validation-for="FreeShippingThreshold" class="text-danger"></span>
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="EstimatedMinDays" class="control-label"></label>
+                <input asp-for="EstimatedMinDays" class="form-control" />
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="EstimatedMaxDays" class="control-label"></label>
+                <input asp-for="EstimatedMaxDays" class="form-control" />
+            </div>
+            <div class="form-group mb-3">
+                <label asp-for="SortOrder" class="control-label"></label>
+                <input asp-for="SortOrder" class="form-control" />
+            </div>
+            <div class="form-group mt-3">
+                <a asp-action="Index" class="btn btn-secondary">Retour à la liste</a>
+                <button type="submit" class="btn btn-primary">Créer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

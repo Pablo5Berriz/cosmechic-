@@ -20,7 +20,8 @@ namespace Cosmechic.Services
         string StreetAddress,
         string City,
         string State,
-        string PostalCode);
+        string PostalCode,
+        int ShippingMethodId);
 
     public abstract record CheckoutResult;
     public sealed record CheckoutSessionCreated(int OrderHeaderId, string RedirectUrl) : CheckoutResult;
@@ -40,6 +41,8 @@ namespace Cosmechic.Services
     public class OrderCheckoutService(
         CosmechicsContext context,
         IStripeCheckoutService stripeCheckoutService,
+        IShippingCalculator shippingCalculator,
+        ITaxCalculator taxCalculator,
         ILogger<OrderCheckoutService> logger) : ICheckoutService
     {
         public async Task<CheckoutResult> CreateCheckoutSessionAsync(string userId, ShippingAddress shipping, string domain)
@@ -76,12 +79,48 @@ namespace Cosmechic.Services
                 }
             }
 
-            var orderTotal = cartItems.Sum(item => item.Produit.Prix * item.Count);
+            // COSMECHIC-COMMERCE-OPERATIONS-001A (section 1/6) : seule source de vérité pour
+            // le montant final. subtotal + shipping + tax - discount == OrderTotal, invariant
+            // également imposé au niveau moteur par CK_OrderHeaders_Total_Equals_Components.
+            var subtotal = cartItems.Sum(item => item.Produit.Prix * item.Count);
+
+            var shippingResult = await shippingCalculator.CalculateAsync(shipping.ShippingMethodId, subtotal);
+            if (shippingResult is not ShippingCalculated shippingCalculated)
+            {
+                var reason = shippingResult is ShippingMethodInvalid invalid
+                    ? invalid.Reason
+                    : "Méthode de livraison invalide ou indisponible.";
+                return new CheckoutFailed(reason);
+            }
+
+            // COSMECHIC-COMMERCE-OPERATIONS-001A (section 19/20) : la taxe est calculée sur
+            // le sous-total (jamais sur les frais de livraison), selon la province de
+            // livraison saisie par le client — jamais selon un montant ou un taux fourni par
+            // le client. Aucune juridiction non déjà établie n'est codée en dur ici :
+            // RegionCodeResolver ne reconnaît explicitement que le Québec (TVQ) ; toute autre
+            // valeur produit 0 $ de taxe provinciale tant qu'aucun TaxRate correspondant
+            // n'est configuré en base (TODO_REQUIRES_BUSINESS_CONFIGURATION).
+            var regionCode = RegionCodeResolver.ResolveCanadianRegionCode(shipping.State);
+            var taxResult = await taxCalculator.CalculateAsync(RegionCodeResolver.CountryCodeCanada, regionCode, subtotal);
+
+            // COSMECHIC-COMMERCE-OPERATIONS-001A (section 35) : Promotion n'est pas connectée
+            // au checkout (pas de FK vers Produit/OrderHeader, simple bannière marketing
+            // horodatée) — aucun moteur de coupon n'est construit ce lot. DiscountAmount reste
+            // à 0, le champ existe pour la forme future sans être exploité ici.
+            var discountAmount = 0m;
+
+            var orderTotal = subtotal + shippingCalculated.Amount + taxResult.TotalTaxAmount - discountAmount;
 
             var orderHeader = new OrderHeader
             {
                 ApplicationUserId = userId,
                 OrderDate = DateTime.UtcNow,
+                Subtotal = subtotal,
+                ShippingAmount = shippingCalculated.Amount,
+                ShippingMethodId = shippingCalculated.ShippingMethodId,
+                ShippingMethodName = shippingCalculated.ShippingMethodName,
+                TaxAmount = taxResult.TotalTaxAmount,
+                DiscountAmount = discountAmount,
                 OrderTotal = orderTotal,
                 OrderStatus = SD.StatusPending,
                 PaymentStatus = SD.PaymentStatusPending,
@@ -108,24 +147,66 @@ namespace Cosmechic.Services
             context.OrderHeaders.Add(orderHeader);
             await context.SaveChangesAsync();
 
+            // COSMECHIC-COMMERCE-OPERATIONS-001A (section 26/27) : la livraison et les taxes
+            // sont ajoutées comme lignes Stripe explicites plutôt que via les paramètres
+            // shipping_options/automatic_tax de Stripe, pour que Session.AmountTotal égale
+            // toujours exactement OrderHeader.OrderTotal (déjà validé par
+            // StripeFulfillmentService lors du fulfillment) sans dupliquer le calcul fiscal
+            // dans Stripe — le serveur Cosmechic reste l'unique source de vérité financière.
+            var lineItems = cartItems.Select(item => new SessionLineItemOptions
+            {
+                PriceData = new SessionLineItemPriceDataOptions
+                {
+                    UnitAmount = (long)Math.Round(item.Produit.Prix * 100, MidpointRounding.AwayFromZero),
+                    Currency = CheckoutConstants.Currency,
+                    ProductData = new SessionLineItemPriceDataProductDataOptions
+                    {
+                        Name = item.Produit.Nom,
+                    },
+                },
+                Quantity = item.Count,
+            }).ToList();
+
+            if (shippingCalculated.Amount > 0)
+            {
+                lineItems.Add(new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        UnitAmount = (long)Math.Round(shippingCalculated.Amount * 100, MidpointRounding.AwayFromZero),
+                        Currency = CheckoutConstants.Currency,
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = $"Livraison - {shippingCalculated.ShippingMethodName}",
+                        },
+                    },
+                    Quantity = 1,
+                });
+            }
+
+            if (taxResult.TotalTaxAmount > 0)
+            {
+                lineItems.Add(new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        UnitAmount = (long)Math.Round(taxResult.TotalTaxAmount * 100, MidpointRounding.AwayFromZero),
+                        Currency = CheckoutConstants.Currency,
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = "Taxes",
+                        },
+                    },
+                    Quantity = 1,
+                });
+            }
+
             var options = new SessionCreateOptions
             {
                 SuccessUrl = domain + $"cart/OrderConfirmation?id={orderHeader.Id}",
                 CancelUrl = domain + "cart/index",
                 Mode = "payment",
-                LineItems = cartItems.Select(item => new SessionLineItemOptions
-                {
-                    PriceData = new SessionLineItemPriceDataOptions
-                    {
-                        UnitAmount = (long)Math.Round(item.Produit.Prix * 100, MidpointRounding.AwayFromZero),
-                        Currency = CheckoutConstants.Currency,
-                        ProductData = new SessionLineItemPriceDataProductDataOptions
-                        {
-                            Name = item.Produit.Nom,
-                        },
-                    },
-                    Quantity = item.Count,
-                }).ToList(),
+                LineItems = lineItems,
                 Metadata = new Dictionary<string, string>
                 {
                     ["OrderId"] = orderHeader.Id.ToString(),

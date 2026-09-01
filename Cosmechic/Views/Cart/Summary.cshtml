@@ -1,11 +1,5 @@
-﻿@{
-	const decimal TPS_RATE = 0.05M;
-	const decimal TVQ_RATE = 0.09975M;
-	const decimal SHIPPING_COST = 15.0M;
-}
-
 @using Cosmechic.Models.ViewModels
-@model ShoppingCartVM
+@model CheckoutSummaryVM
 
 @{
 	ViewData["Title"] = "Vérification de la commande";
@@ -19,8 +13,18 @@
 	</div>
 </section>
 
+@if (!Model.ShippingMethods.Any())
+{
+	<div class="container">
+		<div class="alert alert-warning">
+			Aucune méthode de livraison n'est actuellement configurée. Veuillez réessayer plus tard.
+		</div>
+		<a asp-action="Index" class="btn btn-danger btn-sm">Retour au panier</a>
+	</div>
+	return;
+}
 
-<form method="post">
+<form method="post" id="checkout-form">
 	<br />
 	<div class="container">
 		<div class="card shadow border-0">
@@ -50,8 +54,8 @@
 									<label>Nom</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.Name" class="form-control"/>
-									<span asp-validation-for="OrderHeader.Name" class="text-danger"></span>
+									<input asp-for="Input.Name" class="form-control"/>
+									<span asp-validation-for="Input.Name" class="text-danger"></span>
 								</div>
 							</div>
 							<div class="row my-1">
@@ -59,8 +63,8 @@
 									<label>Téléphone</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.PhoneNumber" class="form-control"/>
-									<span asp-validation-for="OrderHeader.PhoneNumber" class="text-danger"></span>
+									<input asp-for="Input.PhoneNumber" class="form-control"/>
+									<span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
 								</div>
 							</div>
 							<div class="row my-1">
@@ -68,8 +72,8 @@
 									<label>Addresse</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.StreetAddress" class="form-control"/>
-									<span asp-validation-for="OrderHeader.StreetAddress" class="text-danger"></span>
+									<input asp-for="Input.StreetAddress" class="form-control"/>
+									<span asp-validation-for="Input.StreetAddress" class="text-danger"></span>
 								</div>
 							</div>
 							<div class="row my-1">
@@ -77,8 +81,8 @@
 									<label>Ville</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.City" class="form-control"/>
-									<span asp-validation-for="OrderHeader.City" class="text-danger"></span>
+									<input asp-for="Input.City" class="form-control"/>
+									<span asp-validation-for="Input.City" class="text-danger"></span>
 								</div>
 							</div>
 							<div class="row my-1">
@@ -86,8 +90,8 @@
 									<label>Province</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.State" class="form-control"/>
-									<span asp-validation-for="OrderHeader.State" class="text-danger"></span>
+									<input asp-for="Input.State" id="stateInput" class="form-control" placeholder="ex. QC" />
+									<span asp-validation-for="Input.State" class="text-danger"></span>
 								</div>
 							</div>
 							<div class="row my-1">
@@ -95,10 +99,33 @@
 									<label>Code Postal</label>
 								</div>
 								<div class="col-9">
-									<input asp-for="OrderHeader.PostalCode" class="form-control"/>
-									<span asp-validation-for="OrderHeader.PostalCode" class="text-danger"></span>
+									<input asp-for="Input.PostalCode" class="form-control"/>
+									<span asp-validation-for="Input.PostalCode" class="text-danger"></span>
 								</div>
 							</div>
+
+							<div class="row mt-4">
+								<h4 class="d-flex justify-content-between align-items-center mb-3">
+									<span class="text-info">Méthode de livraison:</span>
+								</h4>
+							</div>
+							@for (var i = 0; i < Model.ShippingMethods.Count; i++)
+							{
+								var method = Model.ShippingMethods[i];
+								<div class="form-check my-1 shipping-method-option"
+									 data-price="@method.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+									 data-threshold="@(method.FreeShippingThreshold?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+									<input class="form-check-input shipping-method-radio" type="radio" name="ShippingMethodId"
+										   id="shippingMethod_@method.ShippingMethodId" value="@method.ShippingMethodId" @(i == 0 ? "checked" : "") />
+									<label class="form-check-label" for="shippingMethod_@method.ShippingMethodId">
+										@method.Name — @method.Price.ToString("0.00") CAD
+										@if (method.FreeShippingThreshold.HasValue)
+										{
+											<small class="text-muted">(gratuit à partir de @method.FreeShippingThreshold.Value.ToString("0.00") CAD)</small>
+										}
+									</label>
+								</div>
+							}
 						</div>
 						<div class="col-12 col-lg-5 offset-lg-1">
 							<h4 class="d-flex justify-content-between align-items-center mb-3">
@@ -115,31 +142,24 @@
 										<span class="text-muted">@(details.Prix * details.Count) CAD</span>
 									</li>
 								}
-
-								@{
-									decimal subTotal = Model.ShoppingCartList.Sum(item => item.Prix * item.Count);
-									decimal totalTPS = subTotal * TPS_RATE;
-									decimal totalTVQ = subTotal * TVQ_RATE;
-									decimal totalShippingCost = SHIPPING_COST;
-									decimal totalPrice = subTotal + totalTPS + totalTVQ + totalShippingCost;
-								}
 								<li class="list-group-item d-flex justify-content-between">
-									<span class="text-muted">TPS:</span>
-									<span class="text-muted">@totalTPS.ToString("0.00") CAD</span>
+									<span class="text-muted">Sous-total:</span>
+									<span class="text-muted" id="subtotalDisplay">@Model.Subtotal.ToString("0.00") CAD</span>
 								</li>
 								<li class="list-group-item d-flex justify-content-between">
-									<span class="text-muted">TVQ:</span>
-									<span class="text-muted">@totalTVQ.ToString("0.00") CAD</span>
+									<span class="text-muted">Livraison:</span>
+									<span class="text-muted" id="shippingDisplay">0.00 CAD</span>
 								</li>
 								<li class="list-group-item d-flex justify-content-between">
-									<span class="text-muted">Frais de livraison:</span>
-									<span class="text-muted">@totalShippingCost.ToString("0.00") CAD</span>
+									<span class="text-muted">Taxes (aperçu):</span>
+									<span class="text-muted" id="taxDisplay">0.00 CAD</span>
 								</li>
 								<li class="list-group-item d-flex justify-content-between bg-light">
-									<small class="text-info">Total (CAD)</small>
-									<strong class="text-info">@totalPrice.ToString("0.00") CAD</strong>
+									<small class="text-info">Total (aperçu, CAD)</small>
+									<strong class="text-info" id="totalDisplay">0.00 CAD</strong>
 								</li>
 							</ul>
+							<p class="text-muted"><small>Le montant exact facturé est calculé par le serveur et confirmé à l'étape suivante, avant le paiement.</small></p>
 						</div>
 						<div class="card-footer">
 							<div class="row">
@@ -159,3 +179,58 @@
 		</div>
 	</div>
 </form>
+
+@* COSMECHIC-COMMERCE-OPERATIONS-001A (section 44) : aperçu client uniquement — ne
+   détermine jamais le montant facturé. Le serveur (OrderCheckoutService) recalcule
+   toujours Subtotal/ShippingAmount/TaxAmount/OrderTotal depuis la base, indépendamment
+   de ce script. Mirroir volontairement simple de RegionCodeResolver.ResolveCanadianRegionCode
+   (Québec uniquement reconnu explicitement) pour rester cohérent avec le calcul serveur. *@
+<script nonce="@CspNonce.Nonce">
+	(function () {
+		var subtotal = @Html.Raw(Model.Subtotal.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		var taxRates = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ActiveTaxRates.Select(r => new { r.RegionCode, r.Rate })));
+
+		function resolveRegionCode(state) {
+			if (!state) return null;
+			var normalized = state.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
+			if (normalized === "QC" || normalized === "QUEBEC") return "QC";
+			return normalized.length === 2 ? normalized : null;
+		}
+
+		function recompute() {
+			var selected = document.querySelector('.shipping-method-radio:checked');
+			var shippingAmount = 0;
+			if (selected) {
+				var option = selected.closest('.shipping-method-option');
+				var price = parseFloat(option.getAttribute('data-price')) || 0;
+				var thresholdAttr = option.getAttribute('data-threshold');
+				if (thresholdAttr && subtotal >= parseFloat(thresholdAttr)) {
+					shippingAmount = 0;
+				} else {
+					shippingAmount = price;
+				}
+			}
+
+			var regionCode = resolveRegionCode(document.getElementById('stateInput').value);
+			var taxAmount = 0;
+			taxRates.forEach(function (rate) {
+				if (rate.RegionCode === null || rate.RegionCode === regionCode) {
+					taxAmount += Math.round(subtotal * rate.Rate * 100) / 100;
+				}
+			});
+
+			var total = subtotal + shippingAmount + taxAmount;
+
+			document.getElementById('shippingDisplay').textContent = shippingAmount.toFixed(2) + ' CAD';
+			document.getElementById('taxDisplay').textContent = taxAmount.toFixed(2) + ' CAD';
+			document.getElementById('totalDisplay').textContent = total.toFixed(2) + ' CAD';
+		}
+
+		document.querySelectorAll('.shipping-method-radio').forEach(function (el) {
+			el.addEventListener('change', recompute);
+		});
+		document.getElementById('stateInput').addEventListener('input', recompute);
+
+		recompute();
+	})();
+</script>

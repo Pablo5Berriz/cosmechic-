@@ -45,6 +45,10 @@ public partial class CosmechicsContext : DbContext
 
     public virtual DbSet<Promotion> Promotions { get; set; }
 
+    public virtual DbSet<ShippingMethod> ShippingMethods { get; set; }
+
+    public virtual DbSet<TaxRate> TaxRates { get; set; }
+
     public virtual DbSet<ShoppingCart> ShoppingCarts { get; set; }
 
     public virtual DbSet<TemoignagesClient> TemoignagesClients { get; set; }
@@ -250,12 +254,70 @@ public partial class CosmechicsContext : DbContext
             entity.Property(e => e.ApplicationUserId).HasMaxLength(450);
             entity.Property(e => e.OrderTotal).HasColumnType("money");
 
+            // COSMECHIC-COMMERCE-OPERATIONS-001A (section 6/9) : mêmes conventions que
+            // OrderTotal — type SQL "money", jamais float/double.
+            entity.Property(e => e.Subtotal).HasColumnType("money");
+            entity.Property(e => e.ShippingAmount).HasColumnType("money");
+            entity.Property(e => e.TaxAmount).HasColumnType("money");
+            entity.Property(e => e.DiscountAmount).HasColumnType("money");
+            entity.Property(e => e.ShippingMethodName).HasMaxLength(200);
+
             entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_OrderTotal_NonNegative", "[OrderTotal] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_Subtotal_NonNegative", "[Subtotal] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_ShippingAmount_NonNegative", "[ShippingAmount] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_TaxAmount_NonNegative", "[TaxAmount] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_DiscountAmount_NonNegative", "[DiscountAmount] >= 0"));
+            // Invariant obligatoire (section 6) : appliqué par le moteur, pas seulement en
+            // C# — aucune ligne ne peut jamais diverger de la somme de son détail.
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_OrderHeaders_Total_Equals_Components",
+                "[OrderTotal] = [Subtotal] + [ShippingAmount] + [TaxAmount] - [DiscountAmount]"));
 
             entity.HasOne(d => d.ApplicationUser).WithMany(p => p.OrderHeaders)
                 .HasForeignKey(d => d.ApplicationUserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_OrderHeaders_AspNetUsers");
+
+            // Restrict (section 33) : une méthode de livraison ne doit jamais être
+            // supprimée physiquement tant qu'une commande la référence — l'admin
+            // n'expose de toute façon que la désactivation (comme Brand, COSMECHIC-CATALOG-001).
+            entity.HasOne(d => d.ShippingMethod).WithMany(p => p.OrderHeaders)
+                .HasForeignKey(d => d.ShippingMethodId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_OrderHeaders_ShippingMethods");
+        });
+
+        modelBuilder.Entity<ShippingMethod>(entity =>
+        {
+            entity.HasKey(e => e.ShippingMethodId);
+
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.Price).HasColumnType("money");
+            entity.Property(e => e.FreeShippingThreshold).HasColumnType("money");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_ShippingMethods_Price_NonNegative", "[Price] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_ShippingMethods_FreeShippingThreshold_NonNegative",
+                "[FreeShippingThreshold] IS NULL OR [FreeShippingThreshold] >= 0"));
+        });
+
+        modelBuilder.Entity<TaxRate>(entity =>
+        {
+            entity.HasKey(e => e.TaxRateId);
+
+            entity.Property(e => e.Jurisdiction).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.CountryCode).HasMaxLength(2).IsRequired();
+            entity.Property(e => e.RegionCode).HasMaxLength(10);
+            // Un taux (ex. 0.09975 pour 9.975 %) n'est pas une somme d'argent — precision
+            // décimale explicite plutôt que "money" (COSMECHIC-DATA-001, même logique que
+            // pour toute grandeur non monétaire).
+            entity.Property(e => e.Rate).HasColumnType("decimal(9, 6)");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_TaxRates_Rate_NonNegative", "[Rate] >= 0"));
+
+            entity.HasIndex(e => new { e.CountryCode, e.RegionCode, e.IsActive })
+                .HasDatabaseName("IX_TaxRates_Jurisdiction");
         });
 
         modelBuilder.Entity<Produit>(entity =>

@@ -45,45 +45,58 @@ namespace Cosmechic.Controllers
             return View(ShoppingCartVM);
         }
 
+        // COSMECHIC-COMMERCE-OPERATIONS-001A (section 44) : construit un aperçu (sous-total,
+        // méthodes de livraison actives, taux de taxe actifs pour un calcul d'aperçu côté
+        // client) — jamais utilisé comme source de vérité ; SummaryPOST recalcule tout depuis
+        // la base via CheckoutService, indépendamment de ce qui est affiché ici.
         public IActionResult Summary()
         {
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
 
-            ShoppingCartVM = new()
+            var applicationUser = _context.AspNetUsers.FirstOrDefault(u => u.Id == userId);
+
+            var summaryVM = new CheckoutSummaryVM
             {
                 ShoppingCartList = _context.ShoppingCarts
                     .Where(u => u.ApplicationUserId == userId)
-                    .Include(x => x.Produit),
-                OrderHeader = new()
+                    .Include(x => x.Produit)
+                    .ToList(),
+                ShippingMethods = _context.ShippingMethods
+                    .Where(m => m.IsActive)
+                    .OrderBy(m => m.SortOrder)
+                    .ToList(),
+                ActiveTaxRates = _context.TaxRates
+                    .Where(r => r.IsActive && r.CountryCode == RegionCodeResolver.CountryCodeCanada)
+                    .ToList(),
+                Input = new CheckoutFormInput
+                {
+                    Name = applicationUser?.UserName,
+                    PhoneNumber = applicationUser?.PhoneNumber,
+                },
             };
 
-            ShoppingCartVM.OrderHeader.ApplicationUser = _context.AspNetUsers
-                .Where(u => u.Id == userId)
-                .FirstOrDefault();
+            summaryVM.Subtotal = summaryVM.ShoppingCartList.Sum(item => item.Produit.Prix * item.Count);
 
-            ShoppingCartVM.OrderHeader.Name = ShoppingCartVM.OrderHeader.ApplicationUser.UserName;
-            ShoppingCartVM.OrderHeader.PhoneNumber = ShoppingCartVM.OrderHeader.ApplicationUser.PhoneNumber;
-
-            foreach (var cart in ShoppingCartVM.ShoppingCartList)
-            {
-                ShoppingCartVM.OrderHeader.OrderTotal += ((decimal)cart.Produit.Prix * cart.Count); 
-            }
-
-            return View(ShoppingCartVM);
+            return View(summaryVM);
         }
 
         [HttpPost]
 		[ValidateAntiForgeryToken]
 		[ActionName("Summary")]
 
-		// COSMECHIC-ECOM-CORE-001 (sections 8, 28) : cette action ne fait plus aucun calcul
-		// financier ni aucun appel Stripe elle-meme - elle extrait uniquement les champs de
-		// livraison legitimement modifiables par le client (jamais OrderTotal, Price,
-		// PaymentStatus, OrderStatus, SessionId, PaymentIntentId ou ApplicationUserId, qui
-		// ne sont plus jamais lus depuis le modele lie) et delegue tout le reste a
-		// CheckoutService, seule source de verite pour la creation de commande.
-		public async Task<IActionResult> SummaryPOST()
+		// COSMECHIC-ECOM-CORE-001 (sections 8, 28) / COSMECHIC-COMMERCE-OPERATIONS-001A
+		// (section 41/44) : cette action ne fait plus aucun calcul financier ni aucun appel
+		// Stripe elle-meme - le paramètre lié n'expose que les champs de livraison
+		// légitimement modifiables par le client (adresse + méthode de livraison choisie ;
+		// aucune propriété OrderTotal/Subtotal/ShippingAmount/TaxAmount/PaymentStatus/
+		// OrderStatus/SessionId/PaymentIntentId/ApplicationUserId n'existe sur ce type) et
+		// délègue tout le reste à CheckoutService, seule source de vérité pour la création de
+		// commande.
+		public async Task<IActionResult> SummaryPOST(CheckoutFormInput input)
 
 		{
 
@@ -93,14 +106,14 @@ namespace Cosmechic.Controllers
 				return Unauthorized();
 			}
 
-			var boundHeader = ShoppingCartVM.OrderHeader;
 			var shipping = new ShippingAddress(
-				boundHeader?.Name ?? string.Empty,
-				boundHeader?.PhoneNumber ?? string.Empty,
-				boundHeader?.StreetAddress ?? string.Empty,
-				boundHeader?.City ?? string.Empty,
-				boundHeader?.State ?? string.Empty,
-				boundHeader?.PostalCode ?? string.Empty);
+				input?.Name ?? string.Empty,
+				input?.PhoneNumber ?? string.Empty,
+				input?.StreetAddress ?? string.Empty,
+				input?.City ?? string.Empty,
+				input?.State ?? string.Empty,
+				input?.PostalCode ?? string.Empty,
+				input?.ShippingMethodId ?? 0);
 
 			var domain = Request.Scheme + "://" + Request.Host.Value + "/";
 
@@ -131,7 +144,10 @@ namespace Cosmechic.Controllers
 
 		{
 
-			OrderHeader orderHeader = _context.OrderHeaders.Where(u => u.Id == id).FirstOrDefault();
+			OrderHeader orderHeader = _context.OrderHeaders
+				.Include(o => o.OrderDetails)
+				.Include(o => o.ShippingMethod)
+				.Where(u => u.Id == id).FirstOrDefault();
 
 			if (orderHeader == null)
 			{
@@ -152,7 +168,7 @@ namespace Cosmechic.Controllers
 			// uniquement) : ne mute aucune donnee financiere ni le panier lui-meme.
 			HttpContext.Session.Remove(SD.SessionCart);
 
-			return View(id);
+			return View(orderHeader);
 
 		}
 

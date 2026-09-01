@@ -1,4 +1,5 @@
-﻿@model int
+@using Cosmechic.Models
+@model OrderHeader
 
 @{
     ViewData["Title"] = "Confirmation de commande";
@@ -12,14 +13,57 @@
 </section>
 <div class="container mt-5 mb-5" style="margin-top: 100px;">
     <div class="row">
-        <div class="col-md-6 offset-md-3">
+        <div class="col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-body text-center">
                     <p>Merci d'avoir passé commande !</p>
-                    <p>Votre numéro de commande est : <strong>@Model</strong></p>
-                    <img src="~/Images_Produits" width="65%" class="img-fluid mb-4" alt="Confirmation de commande" />
-                    <p>Votre commande a été passée avec succès !</p>
+                    <p>Votre numéro de commande est : <strong>@Model.Id</strong></p>
                     <p>Nous espérons que vous apprécierez vos achats.</p>
+                </div>
+
+                @* COSMECHIC-COMMERCE-OPERATIONS-001A (section 38/39) : reçoit toujours le
+                   snapshot financier persisté sur la commande — jamais recalculé depuis les
+                   prix courants des produits, qui peuvent avoir changé depuis. *@
+                <div class="card-body">
+                    <h5 class="text-info mb-3">Détails de la commande</h5>
+                    <ul class="list-group mb-3">
+                        @foreach (var detail in Model.OrderDetails)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="my-0">@detail.ProduitNom</h6>
+                                    <small class="text-muted">Quantité: @detail.Count</small>
+                                </div>
+                                <span class="text-muted">@((detail.Price * detail.Count).ToString("0.00")) CAD</span>
+                            </li>
+                        }
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Sous-total:</span>
+                            <span class="text-muted">@Model.Subtotal.ToString("0.00") CAD</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})"):</span>
+                            <span class="text-muted">@Model.ShippingAmount.ToString("0.00") CAD</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Taxes:</span>
+                            <span class="text-muted">@Model.TaxAmount.ToString("0.00") CAD</span>
+                        </li>
+                        @if (Model.DiscountAmount > 0)
+                        {
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Rabais:</span>
+                                <span class="text-muted">-@Model.DiscountAmount.ToString("0.00") CAD</span>
+                            </li>
+                        }
+                        <li class="list-group-item d-flex justify-content-between bg-light">
+                            <small class="text-info">Total (CAD)</small>
+                            <strong class="text-info">@Model.OrderTotal.ToString("0.00") CAD</strong>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card-body text-center">
                     <a class="btn btn-primary" asp-action="Index" asp-controller="Home">Retournez à la page d'accueil</a>
                 </div>
             </div>

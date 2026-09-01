@@ -30,8 +30,23 @@
                 <dt class="col-sm-4">Date de la commande:</dt>
                 <dd class="col-sm-8">@Html.DisplayFor(model => model.OrderDate)</dd>
 
+                <dt class="col-sm-4">Sous-total:</dt>
+                <dd class="col-sm-8">@Model.Subtotal.ToString("0.00") CAD</dd>
+
+                <dt class="col-sm-4">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})"):</dt>
+                <dd class="col-sm-8">@Model.ShippingAmount.ToString("0.00") CAD</dd>
+
+                <dt class="col-sm-4">Taxes:</dt>
+                <dd class="col-sm-8">@Model.TaxAmount.ToString("0.00") CAD</dd>
+
+                @if (Model.DiscountAmount > 0)
+                {
+                    <dt class="col-sm-4">Rabais:</dt>
+                    <dd class="col-sm-8">-@Model.DiscountAmount.ToString("0.00") CAD</dd>
+                }
+
                 <dt class="col-sm-4">Total de la commande:</dt>
-                <dd class="col-sm-8">@Html.DisplayFor(model => model.OrderTotal) CAD</dd>
+                <dd class="col-sm-8"><strong>@Model.OrderTotal.ToString("0.00") CAD</strong></dd>
 
                 <dt class="col-sm-4">Statut de la commande</dt>
                 <dd class="col-sm-8">@Html.DisplayFor(model => model.OrderStatus)</dd>
