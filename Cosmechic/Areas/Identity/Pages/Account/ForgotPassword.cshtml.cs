@@ -11,10 +11,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace Cosmechic.Areas.Identity.Pages.Account
 {
+    // COSMECHIC-SECURITY-002 (section 8) : limite les demandes de réinitialisation par IP.
+    [EnableRateLimiting("AuthSensitive")]
     public class ForgotPasswordModel : PageModel
     {
         private readonly UserManager<IdentityUser> _userManager;

@@ -6,9 +6,12 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Cosmechic.Areas.Identity.Pages.Account
 {
+    // COSMECHIC-SECURITY-002 (section 8) : limite les tentatives de connexion par IP.
+    [EnableRateLimiting("AuthSensitive")]
     public class LoginModel : PageModel
     {
         private readonly SignInManager<IdentityUser> _signInManager;

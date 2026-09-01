@@ -112,6 +112,7 @@ namespace Cosmechic.Controllers
 
 		[HttpPost]
 		[Authorize]
+		[ValidateAntiForgeryToken]
 		public IActionResult AjouterAuPanier(int produitId)
 		{
 			if (User?.Identity?.IsAuthenticated == true)

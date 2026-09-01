@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Cosmechic.Models;
+using Cosmechic.Services;
 using Cosmechic.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -10,16 +11,26 @@ namespace Cosmechic.Controllers
 {
     public class CategoriesController : Controller
     {
+        private const string ImagesSubfolder = "Images Categories";
+
         private readonly CosmechicsContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly IProductImageUploadService _imageUploadService;
 
-        public CategoriesController(CosmechicsContext context, IWebHostEnvironment hostingEnvironment)
+        public CategoriesController(
+            CosmechicsContext context,
+            IWebHostEnvironment hostingEnvironment,
+            IProductImageUploadService imageUploadService)
         {
             _context = context;
             _hostingEnvironment = hostingEnvironment;
+            _imageUploadService = imageUploadService;
         }
 
         // GET: Categories
+        // Vue de gestion administrative (liens Ajouter/Modifier/Supprimer) : réservée à
+        // Admin. La navigation client passe par Customer(...) ci-dessous.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Index(string sortOrder, string currentFilter, string searchString, int page = 1, int pageSize = 20)
         {
             ViewData["NameSortParm"] = String.IsNullOrEmpty(sortOrder) ? "name_desc" : "";
@@ -92,16 +103,16 @@ namespace Cosmechic.Controllers
                 category.Disponible = categoryViewModel.Disponible;
                 if (categoryViewModel.Image != null)
                 {
-                    string uploadsFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Images Categories");
-                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + categoryViewModel.Image.FileName;
-                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    var uploadResult = await _imageUploadService.SaveAsync(categoryViewModel.Image, ImagesSubfolder);
+                    if (!uploadResult.Succeeded)
                     {
-                        await categoryViewModel.Image.CopyToAsync(fileStream);
+                        ModelState.AddModelError(nameof(categoryViewModel.Image), DescribeUploadError(uploadResult.Outcome));
+                        var categoriesForError = _context.Categories.ToList();
+                        categoryViewModel.Categories = new SelectList(categoriesForError, "CategorieId", "Nom");
+                        return View(categoryViewModel);
                     }
 
-                    category.Image = uniqueFileName;
+                    category.Image = uploadResult.StoredFileName!;
                 }
 
                 _context.Add(category);
@@ -168,16 +179,16 @@ namespace Cosmechic.Controllers
                     category.Disponible = categoryViewModel.Disponible;
                     if (categoryViewModel.Image != null)
                     {
-                        string uploadsFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Images Categories");
-                        string uniqueFileName = Guid.NewGuid().ToString() + "_" + categoryViewModel.Image.FileName;
-                        string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                        using (var fileStream = new FileStream(filePath, FileMode.Create))
+                        var uploadResult = await _imageUploadService.SaveAsync(categoryViewModel.Image, ImagesSubfolder);
+                        if (!uploadResult.Succeeded)
                         {
-                            await categoryViewModel.Image.CopyToAsync(fileStream);
+                            ModelState.AddModelError(nameof(categoryViewModel.Image), DescribeUploadError(uploadResult.Outcome));
+                            var categoriesForError = _context.Categories.ToList();
+                            categoryViewModel.Categories = new SelectList(categoriesForError, "CategorieId", "Nom");
+                            return View(categoryViewModel);
                         }
 
-                        category.Image = uniqueFileName;
+                        category.Image = uploadResult.StoredFileName!;
                     }
 
                     _context.Update(category);
@@ -237,6 +248,16 @@ namespace Cosmechic.Controllers
         {
             return _context.Categories.Any(e => e.CategorieId == id);
         }
+
+        private static string DescribeUploadError(ImageUploadOutcome outcome) => outcome switch
+        {
+            ImageUploadOutcome.EmptyFile => "Le fichier image est vide.",
+            ImageUploadOutcome.TooLarge => "Le fichier image dépasse la taille maximale autorisée.",
+            ImageUploadOutcome.InvalidExtension => "Format de fichier non autorisé. Formats acceptés : .jpg, .jpeg, .png, .webp.",
+            ImageUploadOutcome.InvalidContentType => "Le type de contenu du fichier ne correspond pas à son extension.",
+            ImageUploadOutcome.InvalidSignature => "Le contenu du fichier ne correspond pas à une image valide.",
+            _ => "Fichier image invalide.",
+        };
 
         public async Task<IActionResult> Customer(string sortOrder, string currentFilter, string searchString, int page = 1, int pageSize = 20)
         {

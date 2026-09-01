@@ -18,9 +18,12 @@
 </section>
 
 
-<p class="ml-5">
-    <a asp-action="Create" asp-route-Id="@Model.FirstOrDefault().CategorieId" class="btn btn-primary ml-5">Ajouter un produit</a>
-</p>
+@if (User.IsInRole("Admin"))
+{
+    <p class="ml-5">
+        <a asp-action="Create" asp-route-Id="@Model.FirstOrDefault().CategorieId" class="btn btn-primary ml-5">Ajouter un produit</a>
+    </p>
+}
 
 <div class="table-responsive">
     <table class="table table-striped">

@@ -11,13 +11,20 @@ namespace Cosmechic.Controllers
 {
     public class ProduitsController : Controller
     {
+        private const string ImagesSubfolder = "Images_Produits";
+
         private readonly CosmechicsContext _context;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly IProductImageUploadService _imageUploadService;
 
-        public ProduitsController(CosmechicsContext context, IWebHostEnvironment hostingEnvironment)
+        public ProduitsController(
+            CosmechicsContext context,
+            IWebHostEnvironment hostingEnvironment,
+            IProductImageUploadService imageUploadService)
         {
             _context = context;
             _hostingEnvironment = hostingEnvironment;
+            _imageUploadService = imageUploadService;
         }
 
         // GET: Produits
@@ -80,16 +87,16 @@ namespace Cosmechic.Controllers
             {
                 if (Image != null)
                 {
-                    string uploadsFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Images_Produits");
-                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + Image.FileName;
-                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    var uploadResult = await _imageUploadService.SaveAsync(Image, ImagesSubfolder);
+                    if (!uploadResult.Succeeded)
                     {
-                        await Image.CopyToAsync(fileStream);
+                        ModelState.AddModelError(nameof(Image), DescribeUploadError(uploadResult.Outcome));
+                        var categoriesForError = _context.Categories.ToList();
+                        ViewBag.CategorieId = new SelectList(categoriesForError, "CategorieId", "Nom");
+                        return View(produit);
                     }
 
-                    produit.Image = uniqueFileName;
+                    produit.Image = uploadResult.StoredFileName!;
                 }
                 _context.Add(produit);
                 await _context.SaveChangesAsync();
@@ -148,16 +155,16 @@ namespace Cosmechic.Controllers
                 {
                     if (Image != null)
                     {
-                        string uploadsFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Images_Produits");
-                        string uniqueFileName = Guid.NewGuid().ToString() + "_" + Image.FileName;
-                        string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                        using (var fileStream = new FileStream(filePath, FileMode.Create))
+                        var uploadResult = await _imageUploadService.SaveAsync(Image, ImagesSubfolder);
+                        if (!uploadResult.Succeeded)
                         {
-                            await Image.CopyToAsync(fileStream);
+                            ModelState.AddModelError(nameof(Image), DescribeUploadError(uploadResult.Outcome));
+                            var categoriesForError = _context.Categories.ToList();
+                            ViewBag.CategorieId = new SelectList(categoriesForError, "CategorieId", "Nom");
+                            return View(produit);
                         }
 
-                        produit.Image = uniqueFileName;
+                        produit.Image = uploadResult.StoredFileName!;
                     }
                     _context.Update(produit);
                     await _context.SaveChangesAsync();
@@ -226,6 +233,16 @@ namespace Cosmechic.Controllers
             return _context.Produits.Any(e => e.ProduitId == id);
         }
 
+        private static string DescribeUploadError(ImageUploadOutcome outcome) => outcome switch
+        {
+            ImageUploadOutcome.EmptyFile => "Le fichier image est vide.",
+            ImageUploadOutcome.TooLarge => "Le fichier image dépasse la taille maximale autorisée.",
+            ImageUploadOutcome.InvalidExtension => "Format de fichier non autorisé. Formats acceptés : .jpg, .jpeg, .png, .webp.",
+            ImageUploadOutcome.InvalidContentType => "Le type de contenu du fichier ne correspond pas à son extension.",
+            ImageUploadOutcome.InvalidSignature => "Le contenu du fichier ne correspond pas à une image valide.",
+            _ => "Fichier image invalide.",
+        };
+
         public async Task<IActionResult> Rechercher(string query)
         {
             if (string.IsNullOrWhiteSpace(query))
@@ -278,7 +295,13 @@ namespace Cosmechic.Controllers
         // pour l'utilisateur, jamais comme une réservation.
         [HttpPost]
         [Authorize]
-        public IActionResult ItemDetails(ShoppingCart shoppingCart)
+        [ValidateAntiForgeryToken]
+        // COSMECHIC-SECURITY-002 (section 14) : n'accepte que ProduitId/Count depuis la
+        // requête. Sans allowlist explicite, un client pourrait poster des champs
+        // "Produit.*" (liaison de la propriété de navigation) que le binder tenterait de
+        // matérialiser en entité Produit non suivie — ApplicationUserId est de toute façon
+        // réaffecté ci-dessous depuis l'utilisateur authentifié, jamais depuis la requête.
+        public IActionResult ItemDetails([Bind(nameof(ShoppingCart.ProduitId), nameof(ShoppingCart.Count))] ShoppingCart shoppingCart)
         {
             var claimsIdentity = (ClaimsIdentity)User.Identity;
             var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;

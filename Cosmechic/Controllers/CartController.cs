@@ -74,7 +74,7 @@ namespace Cosmechic.Controllers
         }
 
         [HttpPost]
-
+		[ValidateAntiForgeryToken]
 		[ActionName("Summary")]
 
 		// COSMECHIC-ECOM-CORE-001 (sections 8, 28) : cette action ne fait plus aucun calcul

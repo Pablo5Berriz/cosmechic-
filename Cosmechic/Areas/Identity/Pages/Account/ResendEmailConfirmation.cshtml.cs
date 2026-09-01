@@ -12,11 +12,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace Cosmechic.Areas.Identity.Pages.Account
 {
+    // COSMECHIC-SECURITY-002 (section 8) : limite les renvois d'email de confirmation par IP.
     [AllowAnonymous]
+    [EnableRateLimiting("AuthSensitive")]
     public class ResendEmailConfirmationModel : PageModel
     {
         private readonly UserManager<IdentityUser> _userManager;
