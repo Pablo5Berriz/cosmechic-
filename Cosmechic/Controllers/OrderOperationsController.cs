@@ -168,6 +168,30 @@ namespace Cosmechic.Controllers
             return RedirectToAction(nameof(Details), new { id = input.OrderId });
         }
 
+        // COSMECHIC-BUSINESS-POLICY-001 (section 4) : contrairement à TriggerRefund
+        // ci-dessus (montant admin ad hoc, inchangé), cette action ne reçoit jamais de
+        // montant depuis le navigateur — Cause (enum fermé) est la seule décision confiée à
+        // l'admin, le calcul réel (marchandise/livraison/taxe) est entièrement serveur.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TriggerReturnRefund(TriggerReturnRefundInput input)
+        {
+            var result = await refundOrchestrationService.RequestReturnRefundAsync(
+                input.ReturnRequestId, input.Cause, input.Reason, GetCurrentUserId(), SD.ActorTypeAdmin);
+
+            TempData[result is RefundRejected ? "error" : "success"] = result switch
+            {
+                RefundRejected r => r.Reason,
+                RefundSucceeded => "Remboursement du retour effectué avec succès.",
+                RefundFailed f => f.Reason,
+                RefundPendingStripeConfirmation => "Remboursement du retour initié, en attente de confirmation Stripe.",
+                _ => null,
+            };
+
+            var returnRequest = await context.ReturnRequests.FirstOrDefaultAsync(rr => rr.Id == input.ReturnRequestId);
+            return RedirectToAction(nameof(Details), new { id = returnRequest?.OrderId ?? 0 });
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RetryRefund(RefundIdInput input)

@@ -27,6 +27,7 @@ builder.Services.AddScoped<ICancellationService, CancellationService>();
 builder.Services.AddScoped<IReturnService, ReturnService>();
 builder.Services.AddScoped<IRestockService, RestockService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IAccountAnonymizationService, AccountAnonymizationService>();
 
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 
@@ -35,6 +36,9 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"
 // reste reste vide/null tant qu'une décision commerciale/juridique réelle n'existe pas.
 builder.Services.Configure<BusinessInformationOptions>(builder.Configuration.GetSection("BusinessInformation"));
 builder.Services.Configure<CommercePolicyOptions>(builder.Configuration.GetSection("CommercePolicy"));
+
+// COSMECHIC-BUSINESS-POLICY-001 (section 9B) : PRODUCTION_DOMAIN approuvé par le PM.
+builder.Services.Configure<ApplicationOptions>(builder.Configuration.GetSection("Application"));
 
 builder.Services.Configure<ImageUploadSettings>(builder.Configuration.GetSection("Uploads"));
 builder.Services.AddScoped<IProductImageUploadService, ProductImageUploadService>();
@@ -127,6 +131,23 @@ else
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+});
+
+// COSMECHIC-BUSINESS-POLICY-001 (section 9B) : WWW_STRATEGY=REDIRECT_TO_APEX, approuvé
+// par le PM — https://www.cosmechic.ca redirige (301, permanent) vers https://cosmechic.ca,
+// jamais l'inverse. Implémenté en code applicatif (aucune configuration DNS/Cloudflare
+// touchée, hors périmètre de ce lot) : ne compare que le nom d'hôte littéral, donc n'a
+// aucun effet sur localhost/les environnements de développement ou de test.
+app.Use(async (context, next) =>
+{
+    if (string.Equals(context.Request.Host.Host, "www.cosmechic.ca", StringComparison.OrdinalIgnoreCase))
+    {
+        var target = $"https://cosmechic.ca{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}";
+        context.Response.Redirect(target, permanent: true);
+        return;
+    }
+
+    await next();
 });
 
 app.UseHttpsRedirection();

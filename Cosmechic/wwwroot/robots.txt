@@ -1,11 +1,9 @@
 # COSMECHIC-CONTENT-LEGAL-001 (section 22), recertifié COSMECHIC-QA-RELEASE-001
-# (section 19).
+# (section 19), sitemap ajouté COSMECHIC-BUSINESS-POLICY-001 (section 9B) —
+# PRODUCTION_DOMAIN approuvé par le PM (https://cosmechic.ca).
 # Best-effort crawling guidance only — access control is enforced by
 # [Authorize] on the corresponding controllers, not by this file.
-# No sitemap.xml is referenced here: the production domain used to build
-# absolute <loc> URLs is not configured anywhere in this repository
-# (see docs/audits/COSMECHIC-CONTENT-LEGAL-001.md, PRODUCTION_DOMAIN).
-# SITEMAP_XML=DEFERRED, REASON=PRODUCTION_DOMAIN_REQUIRED.
+Sitemap: https://cosmechic.ca/sitemap.xml
 
 User-agent: *
 Disallow: /Account/

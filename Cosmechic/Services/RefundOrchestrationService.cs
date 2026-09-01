@@ -71,6 +71,11 @@ namespace Cosmechic.Services
                     ReturnRequestId = returnRequestId,
                     IdempotencyKey = Guid.NewGuid().ToString("N"),
                     Amount = amount,
+                    // COSMECHIC-BUSINESS-POLICY-001 (section 4/5) : chemin manuel/ad hoc, non
+                    // classifié par une politique de retour — tout le montant est porté par
+                    // MerchandiseAmount pour respecter CK_Refunds_Breakdown_Equals_Amount,
+                    // Cause reste null (voir RequestReturnRefundAsync pour le chemin classifié).
+                    MerchandiseAmount = amount,
                     Status = SD.RefundStatusPending,
                     Reason = reason,
                     RequestedByUserId = requestedByUserId,
@@ -98,6 +103,130 @@ namespace Cosmechic.Services
 
                 // Réservation committée : l'appel Stripe et sa finalisation ne participent
                 // plus à la garde de concurrence ci-dessus.
+                return await CallStripeAndFinalizeAsync(refund, order);
+            }
+
+            return new RefundRejected("Conflit de concurrence répété sur le solde remboursable de la commande.");
+        }
+
+        // COSMECHIC-BUSINESS-POLICY-001 (section 4/5) : boucle de réservation séparée de
+        // RequestRefundAsync (plutôt que factorisée) car le calcul du montant diffère
+        // fondamentalement — ici, il dépend du contenu du retour et de l'état déjà remboursé
+        // de la commande, relus à chaque tentative pour rester correct sous concurrence
+        // (même patron que le rechargement de `order` dans RequestRefundAsync). Seule la
+        // partie appel Stripe/finalisation (CallStripeAndFinalizeAsync) est réellement
+        // partagée, car c'est elle qui porte la vraie complexité/risque.
+        public async Task<RefundResult> RequestReturnRefundAsync(
+            int returnRequestId, RefundCause cause, string? reason, string? requestedByUserId, string actorType)
+        {
+            for (var attempt = 1; attempt <= MaxConcurrencyAttempts; attempt++)
+            {
+                var returnRequest = await context.ReturnRequests
+                    .Include(rr => rr.Items).ThenInclude(ri => ri.OrderDetail)
+                    .FirstOrDefaultAsync(rr => rr.Id == returnRequestId);
+                if (returnRequest == null)
+                {
+                    return new RefundRejected("Demande de retour introuvable.");
+                }
+
+                if (returnRequest.Status != SD.ReturnStatusCompleted)
+                {
+                    return new RefundRejected(
+                        $"Seul un retour à l'état {SD.ReturnStatusCompleted} peut être remboursé (état actuel : {returnRequest.Status}).");
+                }
+
+                var order = await context.OrderHeaders.FirstOrDefaultAsync(o => o.Id == returnRequest.OrderId);
+                if (order == null)
+                {
+                    return new RefundRejected("Commande introuvable.");
+                }
+
+                if (string.IsNullOrEmpty(order.PaymentIntentId))
+                {
+                    return new RefundRejected("Aucun paiement Stripe confirmé pour cette commande.");
+                }
+
+                // Idempotence au niveau du retour (section 4) : un retour déjà remboursé (ou
+                // en cours de remboursement) ne peut pas être remboursé une seconde fois.
+                var existingRefundsForOrder = await context.Refunds
+                    .Where(r => r.OrderId == order.Id && r.Status != SD.RefundStatusFailed)
+                    .ToListAsync();
+                if (existingRefundsForOrder.Any(r => r.ReturnRequestId == returnRequestId))
+                {
+                    return new RefundRejected("Ce retour a déjà fait l'objet d'un remboursement.");
+                }
+
+                // Section 5 (taxe) : jamais recalculée depuis un taux courant — proportion du
+                // snapshot fiscal original de la commande, plafonnée à ce qu'il en reste
+                // réellement après les remboursements déjà émis, pour ne jamais dépasser
+                // TaxAmount même en cas de dérive d'arrondi cumulée sur des remboursements
+                // partiels successifs (le dernier remboursement d'une série absorbe l'écart).
+                var merchandiseAmount = returnRequest.Items.Sum(ri => ri.OrderDetail.Price * ri.Quantity);
+                var alreadyRefundedTax = existingRefundsForOrder.Sum(r => r.TaxAmount);
+                var remainingTaxBalance = Math.Max(0m, order.TaxAmount - alreadyRefundedTax);
+                var proportionalTax = order.Subtotal > 0
+                    ? Math.Round(order.TaxAmount * (merchandiseAmount / order.Subtotal), 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                var taxRefundAmount = Math.Min(proportionalTax, remainingTaxBalance);
+
+                // Section 4 (livraison) : jamais décidé par le navigateur — RefundCause est un
+                // enum fermé choisi côté admin. Remboursée au plus une fois par commande, quel
+                // que soit le nombre de retours partiels successifs.
+                var shippingAlreadyRefunded = existingRefundsForOrder.Any(r => r.ShippingAmount > 0);
+                var shippingRefundAmount = cause == RefundCause.MerchantFault && !shippingAlreadyRefunded
+                    ? order.ShippingAmount
+                    : 0m;
+
+                var totalAmount = merchandiseAmount + taxRefundAmount + shippingRefundAmount;
+                if (totalAmount <= 0)
+                {
+                    return new RefundRejected("Le montant calculé pour ce retour est nul ou négatif.");
+                }
+
+                var refundableBalance = order.OrderTotal - order.RefundedAmount;
+                if (totalAmount > refundableBalance)
+                {
+                    return new RefundRejected(
+                        $"Montant calculé ({totalAmount:0.00}) supérieur au solde remboursable ({refundableBalance:0.00}).");
+                }
+
+                order.RefundedAmount += totalAmount;
+
+                var refund = new Cosmechic.Models.Refund
+                {
+                    OrderId = order.Id,
+                    ReturnRequestId = returnRequestId,
+                    IdempotencyKey = Guid.NewGuid().ToString("N"),
+                    Amount = totalAmount,
+                    MerchandiseAmount = merchandiseAmount,
+                    ShippingAmount = shippingRefundAmount,
+                    TaxAmount = taxRefundAmount,
+                    Cause = cause.ToString(),
+                    Status = SD.RefundStatusPending,
+                    Reason = reason,
+                    RequestedByUserId = requestedByUserId,
+                    ActorType = actorType,
+                    CreatedAt = DateTime.UtcNow,
+                };
+                context.Refunds.Add(refund);
+                lifecycleService.RecordEvent(order, "RefundRequested", null, SD.RefundStatusPending, reason, requestedByUserId, actorType);
+
+                await using var transaction = await context.Database.BeginTransactionAsync();
+                try
+                {
+                    await context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch (DbUpdateConcurrencyException) when (attempt < MaxConcurrencyAttempts)
+                {
+                    await transaction.RollbackAsync();
+                    logger.LogWarning(
+                        "Conflit de concurrence RowVersion à la réservation du remboursement de retour pour la commande {OrderId}, nouvelle tentative ({Attempt}/{Max})",
+                        order.Id, attempt + 1, MaxConcurrencyAttempts);
+                    context.ChangeTracker.Clear();
+                    continue;
+                }
+
                 return await CallStripeAndFinalizeAsync(refund, order);
             }
 

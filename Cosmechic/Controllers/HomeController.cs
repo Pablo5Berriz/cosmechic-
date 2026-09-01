@@ -21,19 +21,68 @@ namespace Cosmechic.Controllers
         private readonly IEmailSender _emailSender;
         private readonly BusinessInformationOptions _businessInformation;
         private readonly CommercePolicyOptions _commercePolicy;
+        private readonly ApplicationOptions _applicationOptions;
 
         public HomeController(
             ILogger<HomeController> logger,
             CosmechicsContext context,
             IEmailSender emailSender,
             IOptions<BusinessInformationOptions> businessInformation,
-            IOptions<CommercePolicyOptions> commercePolicy)
+            IOptions<CommercePolicyOptions> commercePolicy,
+            IOptions<ApplicationOptions> applicationOptions)
         {
             _logger = logger;
             _context = context;
             _emailSender = emailSender;
             _businessInformation = businessInformation.Value;
             _commercePolicy = commercePolicy.Value;
+            _applicationOptions = applicationOptions.Value;
+        }
+
+        // COSMECHIC-BUSINESS-POLICY-001 (section 9B) : sitemap.xml réellement exploitable,
+        // maintenant que PRODUCTION_DOMAIN est approuvé. Liste volontairement restreinte
+        // aux pages publiques statiques/institutionnelles + racines de catalogue — jamais
+        // les routes privées/admin/webhook déjà listées dans robots.txt (voir
+        // SitemapTests.cs). Un sitemap énumérant chaque produit/catégorie individuellement
+        // est une extension future hors du périmètre approuvé de ce lot (voir
+        // docs/audits/COSMECHIC-BUSINESS-POLICY-001.md). Si PublicBaseUrl n'est pas
+        // configuré (développement/tests), retourne 404 plutôt que de fabriquer une URL
+        // localhost/exemple dans un fichier destiné aux moteurs de recherche.
+        // Route conventionnelle attendue par les moteurs de recherche (jamais /Home/Sitemap).
+        [HttpGet("sitemap.xml")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+        public IActionResult Sitemap()
+        {
+            if (string.IsNullOrWhiteSpace(_applicationOptions.PublicBaseUrl))
+            {
+                return NotFound();
+            }
+
+            var baseUrl = _applicationOptions.PublicBaseUrl.TrimEnd('/');
+            var paths = new[]
+            {
+                string.Empty,
+                "/Home/About",
+                "/Home/Contact",
+                "/Home/Faq",
+                "/Home/Privacy",
+                "/Home/Terms",
+                "/Home/Shipping",
+                "/Home/Returns",
+                "/Produits/Index",
+                "/Categories/Customer",
+            };
+
+            var xml = new StringBuilder();
+            xml.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            xml.Append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+            foreach (var path in paths)
+            {
+                xml.Append("<url><loc>").Append(WebUtility.HtmlEncode(baseUrl + path)).Append("</loc></url>");
+            }
+            xml.Append("</urlset>");
+
+            return Content(xml.ToString(), "application/xml");
         }
 
         public async Task<IActionResult> Index()

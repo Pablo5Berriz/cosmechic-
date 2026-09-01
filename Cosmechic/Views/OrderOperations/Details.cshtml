@@ -129,6 +129,21 @@
                             <button type="submit" class="btn btn-xs btn-secondary">Compléter</button>
                         </form>
                     }
+                    @if (rr.Status == "Completed" && !Model.Refunds.Any(r => r.ReturnRequestId == rr.Id && r.Status != "Failed"))
+                    {
+                        @* COSMECHIC-BUSINESS-POLICY-001 (section 4) : Cause est un <select> à
+                           options fermées rendues par le serveur — jamais un champ Amount ni
+                           un champ texte libre. Le calcul réel (marchandise/livraison/taxe)
+                           reste entièrement côté serveur (RequestReturnRefundAsync). *@
+                        <form asp-action="TriggerReturnRefund" method="post" style="display:inline">
+                            <input type="hidden" name="ReturnRequestId" value="@rr.Id" />
+                            <select name="Cause" class="form-select form-select-sm d-inline-block w-auto">
+                                <option value="CustomerRemorse">Client (livraison non remboursée)</option>
+                                <option value="MerchantFault">Erreur commerçant (livraison remboursée)</option>
+                            </select>
+                            <button type="submit" class="btn btn-xs btn-warning">Rembourser ce retour</button>
+                        </form>
+                    }
                 </td>
             </tr>
         }
@@ -138,7 +153,7 @@
 <h4>Remboursements</h4>
 <table class="table table-sm">
     <thead>
-        <tr><th>Id</th><th>Montant</th><th>Statut</th><th>StripeRefundId</th><th>Créé le</th><th>Actions</th></tr>
+        <tr><th>Id</th><th>Montant</th><th>Détail</th><th>Cause</th><th>Statut</th><th>StripeRefundId</th><th>Créé le</th><th>Actions</th></tr>
     </thead>
     <tbody>
         @foreach (var refund in Model.Refunds)
@@ -146,6 +161,17 @@
             <tr>
                 <td>@refund.Id</td>
                 <td>@refund.Amount.ToString("0.00") CAD</td>
+                <td>
+                    @if (refund.MerchandiseAmount > 0 || refund.ShippingAmount > 0 || refund.TaxAmount > 0)
+                    {
+                        <small>
+                            Marchandise @refund.MerchandiseAmount.ToString("0.00") /
+                            Livraison @refund.ShippingAmount.ToString("0.00") /
+                            Taxe @refund.TaxAmount.ToString("0.00")
+                        </small>
+                    }
+                </td>
+                <td>@refund.Cause</td>
                 <td>@refund.Status @(refund.FailureCode != null ? $"({refund.FailureCode})" : "")</td>
                 <td>@refund.StripeRefundId</td>
                 <td>@refund.CreatedAt</td>

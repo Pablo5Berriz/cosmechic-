@@ -569,6 +569,10 @@ public partial class CosmechicsContext : DbContext
             entity.Property(e => e.IdempotencyKey).HasMaxLength(100).IsRequired();
             entity.Property(e => e.StripeRefundId).HasMaxLength(255);
             entity.Property(e => e.Amount).HasColumnType("money");
+            entity.Property(e => e.MerchandiseAmount).HasColumnType("money").HasDefaultValue(0m);
+            entity.Property(e => e.ShippingAmount).HasColumnType("money").HasDefaultValue(0m);
+            entity.Property(e => e.TaxAmount).HasColumnType("money").HasDefaultValue(0m);
+            entity.Property(e => e.Cause).HasMaxLength(50);
             entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
             entity.Property(e => e.Reason).HasMaxLength(500);
             entity.Property(e => e.RequestedByUserId).HasMaxLength(450);
@@ -576,6 +580,14 @@ public partial class CosmechicsContext : DbContext
             entity.Property(e => e.FailureCode).HasMaxLength(100);
 
             entity.ToTable(t => t.HasCheckConstraint("CK_Refunds_Amount_Positive", "[Amount] > 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_Refunds_MerchandiseAmount_NonNegative", "[MerchandiseAmount] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_Refunds_ShippingAmount_NonNegative", "[ShippingAmount] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_Refunds_TaxAmount_NonNegative", "[TaxAmount] >= 0"));
+            // COSMECHIC-BUSINESS-POLICY-001 (section 4/5) : appliqué par le moteur, pas
+            // seulement en C# — mêmes garanties que CK_OrderHeaders_Total_Equals_Components.
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_Refunds_Breakdown_Equals_Amount",
+                "[MerchandiseAmount] + [ShippingAmount] + [TaxAmount] = [Amount]"));
 
             // Ancre d'idempotence (section 28/29) : appliquée par le moteur, pas seulement
             // par le code applicatif — deux tentatives concurrentes de la même opération

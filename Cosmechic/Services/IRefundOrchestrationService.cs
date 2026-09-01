@@ -22,6 +22,16 @@ namespace Cosmechic.Services
         Task<RefundResult> RequestRefundAsync(
             int orderId, decimal amount, int? returnRequestId, string? reason, string? requestedByUserId, string actorType);
 
+        // COSMECHIC-BUSINESS-POLICY-001 (section 4/5) : chemin dédié aux remboursements
+        // adossés à un retour — le montant n'est JAMAIS fourni par l'appelant (jamais par le
+        // navigateur), il est entièrement calculé côté serveur à partir du contenu réel du
+        // retour et du snapshot fiscal original de la commande. RefundCause est un modèle
+        // fermé (enum), pas une chaîne libre. Voir RefundOrchestrationService pour le détail
+        // du calcul (proportionnalité fiscale, plafond au solde fiscal restant, frais de
+        // livraison au plus une fois par commande).
+        Task<RefundResult> RequestReturnRefundAsync(
+            int returnRequestId, RefundCause cause, string? reason, string? requestedByUserId, string actorType);
+
         // Réutilise la MÊME IdempotencyKey déjà persistée : si le premier appel Stripe avait
         // en réalité réussi malgré une erreur perçue côté serveur, Stripe renvoie le résultat
         // déjà obtenu plutôt que de créer un second remboursement réel (section 37).

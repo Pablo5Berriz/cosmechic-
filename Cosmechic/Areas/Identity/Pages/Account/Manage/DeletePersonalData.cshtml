@@ -7,40 +7,50 @@
 
 <h3>@ViewData["Title"]</h3>
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-    </p>
-</div>
-
-@* COSMECHIC-ACCOUNT-001 (section 26) : suppression bloquée tant qu'un historique de
-   commandes existe — voir le commentaire de HasOrderHistory dans le PageModel pour la
-   justification technique (contrainte FK réelle vers OrderHeaders). Aucune politique
-   d'anonymisation/rétention n'est inventée ici : TODO_REQUIRES_BUSINESS_CONFIGURATION. *@
+@* COSMECHIC-BUSINESS-POLICY-001 (section 7) : ACCOUNT_DELETION_ANONYMIZATION_POLICY
+   approuvée par le PM — un compte avec historique de commandes n'est plus bloqué : il est
+   anonymisé (connexion définitivement fermée, données personnelles identifiantes
+   remplacées par des valeurs non réversibles) tout en conservant l'historique
+   transactionnel requis (commandes, remboursements, retours, audit fiscal). Un compte sans
+   aucun historique reste supprimé définitivement (hard-delete, inchangé). *@
 @if (Model.HasOrderHistory)
 {
-    <div class="alert alert-info" role="alert">
-        Ce compte a un historique de commandes et ne peut pas être supprimé automatiquement
-        pour le moment. Contactez le support pour toute demande liée à vos données.
+    <div class="alert alert-warning" role="alert">
+        <p>
+            <strong>
+                Ce compte a un historique de commandes : vos données personnelles seront
+                anonymisées (nom, coordonnées, adresses) et votre accès sera définitivement
+                fermé, mais votre historique de commandes est conservé (obligations
+                comptables). Cette action est irréversible.
+            </strong>
+        </p>
     </div>
 }
 else
 {
-    <div>
-        <form id="delete-user" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-            @if (Model.RequirePassword)
-            {
-                <div class="form-floating mb-3">
-                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                    <label asp-for="Input.Password" class="form-label"></label>
-                    <span asp-validation-for="Input.Password" class="text-danger"></span>
-                </div>
-            }
-            <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
-        </form>
+    <div class="alert alert-warning" role="alert">
+        <p>
+            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+        </p>
     </div>
 }
+
+<div>
+    <form id="delete-user" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+        @if (Model.RequirePassword)
+        {
+            <div class="form-floating mb-3">
+                <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
+                <label asp-for="Input.Password" class="form-label"></label>
+                <span asp-validation-for="Input.Password" class="text-danger"></span>
+            </div>
+        }
+        <button class="w-100 btn btn-lg btn-danger" type="submit">
+            @(Model.HasOrderHistory ? "Anonymiser mon compte" : "Delete data and close my account")
+        </button>
+    </form>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

@@ -1,10 +1,17 @@
 using Cosmechic.Models;
 using Cosmechic.Utility;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Cosmechic.Services
 {
-    public class ReturnService(CosmechicsContext context, IOrderLifecycleService lifecycleService) : IReturnService
+    // COSMECHIC-BUSINESS-POLICY-001 (section 3) : RETURN_WINDOW_DAYS=30, approuvé par le PM.
+    // CanRequestReturnAsync reste l'unique source de vérité — aucune duplication de la règle
+    // ailleurs (contrôleur, vue). CommercePolicyOptions.ReturnWindowDays reste nullable par
+    // conception (COSMECHIC-CONTENT-LEGAL-001) : une valeur non configurée désactive la
+    // fenêtre plutôt que d'en inventer une, comportement inchangé pour ce cas.
+    public class ReturnService(
+        CosmechicsContext context, IOrderLifecycleService lifecycleService, IOptions<CommercePolicyOptions> policyOptions) : IReturnService
     {
         private static readonly Dictionary<string, HashSet<string>> StatusTransitions = new()
         {
@@ -34,6 +41,38 @@ namespace Cosmechic.Services
             if (order.PaymentStatus is not (SD.PaymentStatusPaid or SD.PaymentStatusPartiallyRefunded))
             {
                 return new ReturnIneligible("Cette commande n'a pas de paiement confirmé à rembourser.");
+            }
+
+            // COSMECHIC-BUSINESS-POLICY-001 (section 3) : fenêtre de retour de 30 jours,
+            // comptée depuis la date de livraison réelle (DeliveredAt) ; si la commande n'a
+            // été qu'expédiée sans encore être marquée livrée, depuis la date d'expédition
+            // (ShippedAt) — seule date de référence disponible dans ce cas, déjà utilisée pour
+            // autoriser le retour ci-dessus. Frontière explicite : le jour calendaire 30
+            // complet reste éligible (elapsedCalendarDays > 30 rejette seulement à partir du
+            // jour 31), convention "30 jours pleins" la plus favorable au client. Comparaison
+            // volontairement basée sur la DATE calendaire (.Date, sans l'heure) plutôt que sur
+            // TimeSpan.TotalDays brut : une comparaison en jours fractionnaires ferait basculer
+            // un client livré "il y a exactement 30 jours" en inéligible dès que quelques
+            // millisecondes s'écoulent pendant le traitement de la requête — un défaut réel
+            // reproduit lors des tests de frontière (ReturnWindowTests.cs), corrigé ici plutôt
+            // que masqué en assouplissant le test. COSMETIC_OPENED_PRODUCT_RETURN_POLICY reste
+            // volontairement non codé : aucune règle sur l'état d'ouverture/d'utilisation du
+            // produit n'existe — AWAITING_LEGAL_REVIEW.
+            var returnWindowDays = policyOptions.Value.ReturnWindowDays;
+            if (returnWindowDays.HasValue)
+            {
+                var referenceDate = order.DeliveredAt ?? order.ShippedAt;
+                if (referenceDate == null)
+                {
+                    return new ReturnIneligible("Aucune date d'expédition ou de livraison enregistrée pour cette commande.");
+                }
+
+                var elapsedCalendarDays = (DateTime.UtcNow.Date - referenceDate.Value.Date).Days;
+                if (elapsedCalendarDays > returnWindowDays.Value)
+                {
+                    return new ReturnIneligible(
+                        $"La fenêtre de retour de {returnWindowDays.Value} jours est dépassée ({elapsedCalendarDays} jours écoulés).");
+                }
             }
 
             // Invariant (section 17) : quantité retournée cumulée <= quantité achetée -

@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject Microsoft.Extensions.Options.IOptions<Cosmechic.Services.ApplicationOptions> ApplicationOptionsAccessor
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
@@ -8,6 +9,16 @@
         <meta name="description" content="@metaDescription" />
     }
     <title>@ViewData["Title"] Cosmechic</title>
+
+    @* COSMECHIC-BUSINESS-POLICY-001 (section 9B) : URL canonique construite à partir de
+       PublicBaseUrl (jamais localhost/le Host de la requête) + le chemin courant SANS
+       chaîne de requête (évite de canonicaliser des variantes filtrées/triées comme des
+       pages distinctes). Absente si PublicBaseUrl n'est pas configuré (développement/
+       tests) plutôt que de fabriquer une URL — voir CanonicalUrlTests.cs. *@
+    @if (!string.IsNullOrWhiteSpace(ApplicationOptionsAccessor.Value.PublicBaseUrl))
+    {
+        <link rel="canonical" href="@(ApplicationOptionsAccessor.Value.PublicBaseUrl.TrimEnd('/') + Context.Request.Path)" />
+    }
 
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">

@@ -3,11 +3,16 @@ using Cosmechic.Services;
 using Cosmechic.Tests.Infrastructure;
 using Cosmechic.Utility;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Cosmechic.Tests
 {
     // COSMECHIC-COMMERCE-OPERATIONS-001B (section 69) : ownership, quantité, retour partiel.
+    // COSMECHIC-BUSINESS-POLICY-001 : fenêtre de retour de 30 jours (voir ReturnWindowTests.cs
+    // pour la matrice dédiée 29/30/31 jours) — désactivée ici (ReturnWindowDays=null) pour ne
+    // pas coupler ces tests pré-existants, qui utilisent des commandes sans ShippedAt/
+    // DeliveredAt, à une politique qui leur est étrangère.
     public class ReturnServiceTests : IDisposable
     {
         private readonly CosmechicsContext _context = InMemoryContextFactory.Create();
@@ -15,7 +20,8 @@ namespace Cosmechic.Tests
 
         public ReturnServiceTests()
         {
-            _sut = new ReturnService(_context, new OrderLifecycleService(_context));
+            var policyOptions = Options.Create(new CommercePolicyOptions { ReturnWindowDays = null });
+            _sut = new ReturnService(_context, new OrderLifecycleService(_context), policyOptions);
         }
 
         private (OrderHeader Order, OrderDetail DetailA, OrderDetail DetailB) SeedShippedOrderWithTwoLines(string ownerId = "user-a")

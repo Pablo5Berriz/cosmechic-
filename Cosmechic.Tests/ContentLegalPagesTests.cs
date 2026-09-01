@@ -207,15 +207,21 @@ namespace Cosmechic.Tests
         // CommercePolicy:ReturnWindowDays n'est pas configuré, le texte doit rester le
         // fallback explicite "non encore défini" plutôt qu'un nombre inventé.
         [Fact]
-        public async Task ReturnsPage_WithoutConfiguredPolicy_ShowsExplicitUndefinedFallback_NotFabricatedValue()
+        // COSMECHIC-BUSINESS-POLICY-001 (section 3) : RETURN_WINDOW_DAYS=30 est désormais
+        // une décision PM approuvée et configurée (appsettings.json), plus une valeur
+        // absente — la page affiche donc la vraie politique plutôt que le repli
+        // "non défini". Le repli lui-même (aucune valeur fabriquée quand la config est
+        // absente) reste couvert au niveau service par ReturnServiceTests/ReturnWindowTests
+        // (ReturnWindowDays=null y est passé explicitement).
+        public async Task ReturnsPage_WithConfiguredPolicy_ShowsRealApprovedValue_NotFallback()
         {
             var client = _factory.CreateTestClient().AsAnonymous();
 
             var response = await client.GetAsync("/Home/Returns");
             var html = await response.Content.ReadAsStringAsync();
 
-            Assert.Contains("n'a pas encore été défini par", html);
-            Assert.DoesNotContain("30 jours", html);
+            Assert.Contains("30 jours", html);
+            Assert.DoesNotContain("n'a pas encore été défini par", html);
         }
 
         // La page Conditions ne doit jamais affirmer une juridiction non validée.

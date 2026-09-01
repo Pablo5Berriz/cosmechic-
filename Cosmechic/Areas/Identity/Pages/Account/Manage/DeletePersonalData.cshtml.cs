@@ -6,6 +6,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Cosmechic.Models;
+using Cosmechic.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,17 +20,20 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly CosmechicsContext _businessContext;
+        private readonly IAccountAnonymizationService _anonymizationService;
         private readonly ILogger<DeletePersonalDataModel> _logger;
 
         public DeletePersonalDataModel(
             UserManager<IdentityUser> userManager,
             SignInManager<IdentityUser> signInManager,
             CosmechicsContext businessContext,
+            IAccountAnonymizationService anonymizationService,
             ILogger<DeletePersonalDataModel> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _businessContext = businessContext;
+            _anonymizationService = anonymizationService;
             _logger = logger;
         }
 
@@ -37,14 +41,12 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
         // partagée entre ApplicationDbContext (Identity) et CosmechicsContext (commerce,
         // ARCH-002/DATA-001) — un OrderHeader porte une vraie contrainte FK vers cette
         // ligne (FK_OrderHeaders_AspNetUsers, DeleteBehavior.ClientSetNull mais
-        // ApplicationUserId non-nullable ⇒ NO ACTION réel côté moteur). Avant ce correctif,
-        // _userManager.DeleteAsync(user) sur un client ayant déjà commandé levait une
-        // SqlException de contrainte FK non gérée (page en erreur 500), et pour un client
-        // sans commande, ne posait pas de question — dans les deux cas, aucune décision
-        // métier n'avait jamais été prise sur la politique de suppression. Politique
-        // technique minimale retenue ici (pas de politique juridique inventée) :
-        // suppression autorisée uniquement si aucun historique de commande n'existe.
-        // Anonymisation/rétention minimale : TODO_REQUIRES_BUSINESS_CONFIGURATION.
+        // ApplicationUserId non-nullable ⇒ NO ACTION réel côté moteur), d'où l'impossibilité
+        // d'un hard-delete pour un client ayant déjà commandé.
+        // COSMECHIC-BUSINESS-POLICY-001 (section 7) : ACCOUNT_DELETION_ANONYMIZATION_POLICY
+        // approuvée par le PM — HasOrderHistory=true déclenche désormais une anonymisation
+        // (IAccountAnonymizationService) plutôt qu'un blocage pur. HasOrderHistory=false
+        // continue de déclencher un hard-delete réel (inchangé, rien à préserver).
         public bool HasOrderHistory { get; set; }
 
         /// <summary>
@@ -97,12 +99,6 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
             }
 
             HasOrderHistory = await _businessContext.OrderHeaders.AnyAsync(o => o.ApplicationUserId == user.Id);
-            if (HasOrderHistory)
-            {
-                ModelState.AddModelError(string.Empty, "Ce compte a un historique de commandes et ne peut pas être supprimé pour le moment. Contactez le support pour toute demande liée à vos données.");
-                RequirePassword = await _userManager.HasPasswordAsync(user);
-                return Page();
-            }
 
             RequirePassword = await _userManager.HasPasswordAsync(user);
             if (RequirePassword)
@@ -114,8 +110,25 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
                 }
             }
 
-            var result = await _userManager.DeleteAsync(user);
             var userId = await _userManager.GetUserIdAsync(user);
+
+            if (HasOrderHistory)
+            {
+                // COSMECHIC-BUSINESS-POLICY-001 (section 7) : anonymisation plutôt que
+                // blocage — voir AccountAnonymizationService pour ce qui est réellement
+                // anonymisé/conservé.
+                var anonymized = await _anonymizationService.AnonymizeAsync(userId);
+                if (!anonymized)
+                {
+                    throw new InvalidOperationException("Unexpected error occurred anonymizing user.");
+                }
+
+                await _signInManager.SignOutAsync();
+                _logger.LogInformation("User with ID '{UserId}' anonymized their account (order history preserved).", userId);
+                return Redirect("~/");
+            }
+
+            var result = await _userManager.DeleteAsync(user);
             if (!result.Succeeded)
             {
                 throw new InvalidOperationException($"Unexpected error occurred deleting user.");
