@@ -1,4 +1,4 @@
-﻿@model Cosmechic.Models.Produit
+@model Cosmechic.Models.Produit
 
 @{
     ViewData["Title"] = "Détails du produit";
@@ -6,6 +6,7 @@
     {
         Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     }
+    var enStock = Model.Disponible && Model.Stock > 0;
 }
 <section class="py-5">
     <div class="text-center">
@@ -19,15 +20,33 @@
 
 <div class="container mt-5 mb-5">
     <h1 class="text-center">@Model.Nom</h1>
+    @if (Model.Brand != null)
+    {
+        <p class="text-center text-muted">@Model.Brand.Nom</p>
+    }
     <hr />
 </div>
 
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            @if (!string.IsNullOrEmpty(Model.Image))
-            {
-                <img src="@Url.Content("~/Images_Produits/" + Model.Image)" class="img-fluid" alt="Produit: @Model.Nom" style="max-width: 50%;">
+            @{
+                var galleryImages = Model.Images.OrderBy(i => i.SortOrder).ToList();
+                if (galleryImages.Count == 0 && !string.IsNullOrEmpty(Model.Image))
+                {
+                    <img src="@Url.Content("~/Images_Produits/" + Model.Image)" class="img-fluid" alt="Produit: @Model.Nom" style="max-width: 50%;">
+                }
+                else
+                {
+                    <div class="row row-cols-2 g-2">
+                        @foreach (var image in galleryImages)
+                        {
+                            <div class="col">
+                                <img src="@Url.Content("~/Images_Produits/" + image.FileName)" class="img-fluid rounded" alt="@(image.AltText ?? Model.Nom)">
+                            </div>
+                        }
+                    </div>
+                }
             }
         </div>
 
@@ -38,15 +57,52 @@
 
                 <dt class="col-sm-4">Prix</dt>
                 <dd class="col-sm-8">@Model.Prix.ToString("0.00") CAD</dd>
-                <dt class="col-sm-4">En Stock</dt>
-                <dd class="col-sm-8">@Model.Stock</dd>
 
-                <dt class="col-sm-4">Disponible</dt>
-                <dd class="col-sm-8">@Model.Disponible</dd>
+                @if (!string.IsNullOrWhiteSpace(Model.NetQuantity))
+                {
+                    <dt class="col-sm-4">Quantité nette</dt>
+                    <dd class="col-sm-8">@Model.NetQuantity</dd>
+                }
+
+                <dt class="col-sm-4">Disponibilité</dt>
+                <dd class="col-sm-8">
+                    @if (enStock)
+                    {
+                        <span class="badge bg-success">En stock</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Rupture de stock</span>
+                    }
+                </dd>
 
                 <dt class="col-sm-4">Catégorie</dt>
                 <dd class="col-sm-8">@Model.Categorie.Nom</dd>
+
+                @if (User.IsInRole("Admin"))
+                {
+                    <dt class="col-sm-4">SKU</dt>
+                    <dd class="col-sm-8">@Model.Sku</dd>
+                }
             </dl>
+
+            @if (!string.IsNullOrWhiteSpace(Model.IngredientsInci))
+            {
+                <h5>Ingrédients (INCI)</h5>
+                <p>@Model.IngredientsInci</p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.UsageInstructions))
+            {
+                <h5>Mode d'emploi</h5>
+                <p>@Model.UsageInstructions</p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Warnings))
+            {
+                <h5>Précautions</h5>
+                <p>@Model.Warnings</p>
+            }
         </div>
     </div>
 
@@ -57,12 +113,33 @@
                 <a asp-action="Index" asp-controller="Produits" class="btn btn-secondary">Retour à la liste</a>
                 <a asp-action="Edit" asp-route-id="@Model.ProduitId" class="btn btn-primary">Modifier</a>
             }
+            else if (enStock)
+            {
+                <a class="btn btn-primary" asp-action="ItemDetails" asp-route-productId="@Model.ProduitId">Ajouter au panier</a>
+            }
             else
             {
-                <button class="btn btn-primary" onclick="ajouterAuPanier(@Model.ProduitId)">Ajouter au panier</button>
+                <button class="btn btn-secondary" disabled>Rupture de stock</button>
             }
         </div>
     </div>
+
+    @if (Model.Avis != null && Model.Avis.Count > 0)
+    {
+        <hr />
+        <div class="row mt-4">
+            <div class="col">
+                <h4>Avis clients</h4>
+                @foreach (var avis in Model.Avis)
+                {
+                    <div class="border-bottom py-2">
+                        <strong>@avis.Note / 5</strong>
+                        <p>@avis.Commentaire</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 <style>

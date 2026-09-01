@@ -1,0 +1,60 @@
+@model Cosmechic.Models.Produit
+
+@{
+    ViewData["Title"] = "Images du produit";
+    if (User.IsInRole("Admin"))
+    {
+        Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    }
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"] — @Model.Nom</h1>
+
+@if (TempData["error"] != null)
+{
+    <div class="alert alert-danger">@TempData["error"]</div>
+}
+
+<div class="row g-3 mb-4">
+    @foreach (var image in Model.Images.OrderBy(i => i.SortOrder))
+    {
+        <div class="col-md-3">
+            <div class="card">
+                <img src="@Url.Content("~/Images_Produits/" + image.FileName)" class="card-img-top" style="height:180px;object-fit:cover;" alt="@image.AltText" />
+                <div class="card-body">
+                    @if (image.IsPrimary)
+                    {
+                        <span class="badge bg-primary">Image principale</span>
+                    }
+                    else
+                    {
+                        <form asp-action="SetPrimaryImage" asp-route-id="@Model.ProduitId" method="post" class="d-inline">
+                            <input type="hidden" name="imageId" value="@image.ProduitImageId" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Définir comme principale</button>
+                        </form>
+                    }
+                    <form asp-action="DeleteImage" asp-route-id="@Model.ProduitId" method="post" class="d-inline mt-2">
+                        <input type="hidden" name="imageId" value="@image.ProduitImageId" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Supprimer cette image ?');">Supprimer</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<form asp-action="AddImage" asp-route-id="@Model.ProduitId" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+    <div class="col-auto">
+        <label class="form-label">Ajouter une image</label>
+        <input type="file" name="file" class="form-control" required />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">Texte alternatif</label>
+        <input type="text" name="altText" class="form-control" placeholder="@Model.Nom" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Ajouter</button>
+    </div>
+</form>
+
+<a asp-action="Edit" asp-route-id="@Model.ProduitId" class="btn btn-secondary mt-4">Retour à la fiche produit</a>

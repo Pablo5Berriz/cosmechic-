@@ -4,6 +4,7 @@ using Cosmechic.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Cosmechic.Migrations
 {
     [DbContext(typeof(CosmechicsContext))]
-    partial class CosmechicsContextModelSnapshot : ModelSnapshot
+    [Migration("20260901030805_EnhanceProductCatalog")]
+    partial class EnhanceProductCatalog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

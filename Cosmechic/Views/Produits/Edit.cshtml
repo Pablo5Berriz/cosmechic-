@@ -86,18 +86,83 @@
 
             <div class="form-group mb-3">
 
-                <label asp-for="Image" class="control-label">Image du Produit</label>
+                <label asp-for="Image" class="control-label">Image principale du produit</label>
 
                 <input asp-for="Image" class="form-control" type="file" />
 
                 <span asp-validation-for="Image" class="text-danger"></span>
 
             </div>
+
+            <hr />
+            <h5>Identité produit</h5>
+
+            <div class="form-group mb-3">
+                <label asp-for="Sku" class="control-label">SKU</label>
+                <input asp-for="Sku" class="form-control" />
+                <span asp-validation-for="Sku" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Slug" class="control-label">Slug (URL)</label>
+                <input asp-for="Slug" class="form-control" placeholder="Laisser vide pour générer automatiquement depuis le nom" />
+                <span asp-validation-for="Slug" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="BrandId" class="control-label">Marque</label>
+                <select asp-for="BrandId" class="form-control" asp-items="ViewBag.BrandId">
+                    <option value="">Aucune</option>
+                </select>
+            </div>
+
+            <hr />
+            <h5>Informations cosmétiques</h5>
+
+            <div class="form-group mb-3">
+                <label asp-for="NetQuantity" class="control-label">Quantité nette</label>
+                <input asp-for="NetQuantity" class="form-control" placeholder="ex. 250 ml" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="IngredientsInci" class="control-label">Ingrédients (INCI)</label>
+                <textarea asp-for="IngredientsInci" class="form-control" rows="3" placeholder="Liste telle que fournie par le fabricant"></textarea>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="UsageInstructions" class="control-label">Mode d'emploi</label>
+                <textarea asp-for="UsageInstructions" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Warnings" class="control-label">Précautions</label>
+                <textarea asp-for="Warnings" class="form-control" rows="3"></textarea>
+            </div>
+
+            <hr />
+            <h5>SEO (optionnel)</h5>
+
+            <div class="form-group mb-3">
+                <label asp-for="SeoTitle" class="control-label">Titre SEO</label>
+                <input asp-for="SeoTitle" class="form-control" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="SeoDescription" class="control-label">Description SEO</label>
+                <textarea asp-for="SeoDescription" class="form-control" rows="2"></textarea>
+            </div>
+
             <div class="form-group mt-4">
                 <a asp-action="Index" asp-controller="Produits" class="btn btn-secondary">Retour à la liste</a>
                 <input type="submit" value="Sauvegarder" class="btn btn-primary" />
             </div>
         </form>
+
+        @if (Model.ProduitId != 0)
+        {
+            <hr />
+            <a asp-action="ManageImages" asp-route-id="@Model.ProduitId" class="btn btn-outline-secondary">Gérer les images du produit (@Model.Images.Count)</a>
+        }
     </div>
 </div>
 

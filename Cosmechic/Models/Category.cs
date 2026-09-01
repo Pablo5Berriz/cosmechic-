@@ -15,5 +15,9 @@ public partial class Category
 
     public bool Disponible { get; set; }
 
+    // COSMECHIC-CATALOG-001 (section 19) : identifiant URL stable, mêmes garanties que
+    // Produit.Slug.
+    public string? Slug { get; set; }
+
     public virtual ICollection<Produit> Produits { get; set; } = new List<Produit>();
 }

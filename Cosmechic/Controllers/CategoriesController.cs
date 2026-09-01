@@ -57,6 +57,26 @@ namespace Cosmechic.Controllers
             return View(paginatedList);
         }
 
+        // GET: /categories/{slug} — redirige vers la vitrine produit de la catégorie
+        // (COSMECHIC-CATALOG-001, section 19). Pas de vue dédiée : une catégorie n'a pas
+        // de contenu propre au-delà de la liste de ses produits, déjà servie par
+        // ProduitsController.Customer.
+        public async Task<IActionResult> CustomerBySlug(string slug)
+        {
+            if (string.IsNullOrWhiteSpace(slug))
+            {
+                return NotFound();
+            }
+
+            var category = await _context.Categories.FirstOrDefaultAsync(c => c.Slug == slug);
+            if (category == null)
+            {
+                return NotFound();
+            }
+
+            return RedirectToAction("Customer", "Produits", new { id = category.CategorieId });
+        }
+
         // GET: Categories/Details/5
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Details(int? id)
@@ -229,17 +249,32 @@ namespace Cosmechic.Controllers
         }
 
         // POST: Categories/Delete/5
+        // COSMECHIC-CATALOG-001 (section 38) : une catégorie encore référencée par des
+        // produits (FK_Produits_Categories en ClientSetNull sur colonne non-nullable =>
+        // NO ACTION côté SQL Server) provoquait un DbUpdateException non intercepté
+        // (crash 500). Bloqué explicitement avec un message clair plutôt que de laisser
+        // remonter l'exception SQL brute — aucune suppression accidentelle des produits
+        // qu'elle contient.
         [HttpPost, ActionName("Delete")]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var category = await _context.Categories.FindAsync(id);
-            if (category != null)
+            if (category == null)
             {
-                _context.Categories.Remove(category);
-                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
+
+            var hasProducts = await _context.Produits.AnyAsync(p => p.CategorieId == id);
+            if (hasProducts)
+            {
+                TempData["error"] = "Cette catégorie contient des produits et ne peut pas être supprimée. Déplacez ou supprimez d'abord ses produits.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            _context.Categories.Remove(category);
+            await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }

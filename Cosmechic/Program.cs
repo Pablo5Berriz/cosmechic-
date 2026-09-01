@@ -127,10 +127,46 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();
 
+// COSMECHIC-CATALOG-001 (section 18/19) : routes à slug, enregistrées avant la route
+// conventionnelle par défaut. Désambiguïsation avec les noms d'action réels par exclusion
+// explicite (lookahead négatif) plutôt que par une contrainte "minuscules uniquement" :
+// la contrainte regex intégrée d'ASP.NET Core (RegexInlineRouteConstraint) est
+// insensible à la casse par défaut (RegexOptions.IgnoreCase), donc [a-z0-9] y matche
+// aussi les majuscules — "/produits/Index" aurait été ambigu malgré tout. Les routes ID
+// historiques (ProduitsController.Details(int), CategoriesController.Details(int))
+// restent inchangées : aucun lien existant n'est cassé.
+app.MapControllerRoute(
+    name: "produitBySlug",
+    pattern: "produits/{slug:regex(^(?!create$|customer$|delete$|deleteconfirmed$|details$|detailsbyslug$|edit$|index$|itemdetails$|parcategorie$|rechercher$)[a-z0-9]+(-[a-z0-9]+)*$)}",
+    defaults: new { controller = "Produits", action = "DetailsBySlug" });
+
+app.MapControllerRoute(
+    name: "categorieBySlug",
+    pattern: "categories/{slug:regex(^(?!create$|customer$|customerbyslug$|delete$|deleteconfirmed$|details$|edit$|index$)[a-z0-9]+(-[a-z0-9]+)*$)}",
+    defaults: new { controller = "Categories", action = "CustomerBySlug" });
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 app.MapRazorPages();
+
+// COSMECHIC-CATALOG-001 (section 49) : rétro-remplissage Slug/Sku ponctuel, idempotent.
+// Ne bloque jamais le démarrage : une base injoignable au boot est journalisée et
+// n'empêche pas l'application de démarrer (cohérent avec COSMECHIC-SECURITY-002, section
+// gestion d'erreur production — aucune dépendance dure à la base au démarrage).
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var catalogContext = scope.ServiceProvider.GetRequiredService<CosmechicsContext>();
+        var backfillLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("CatalogBackfill");
+        await CatalogBackfillService.RunAsync(catalogContext, backfillLogger);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Rétro-remplissage catalogue ignoré au démarrage (base injoignable ou non migrée).");
+    }
+}
 
 app.Run();
 

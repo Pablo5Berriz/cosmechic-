@@ -1,0 +1,157 @@
+@model Cosmechic.ViewModels.CatalogSearchViewModel
+
+@{
+    ViewData["Title"] = "Résultats de recherche";
+
+    // COSMECHIC-CATALOG-001 (section 10) : dictionnaire de base pour reconstruire les
+    // liens de pagination/tri en conservant tous les filtres actifs (aucune perte d'état
+    // au changement de page, section 10/42 : tout est GET, donc "bookmarkable").
+    var baseRoute = new Dictionary<string, string?>
+    {
+        ["Q"] = Model.Q,
+        ["CategoryId"] = Model.CategoryId?.ToString(),
+        ["BrandId"] = Model.BrandId?.ToString(),
+        ["MinPrice"] = Model.MinPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ["MaxPrice"] = Model.MaxPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ["AvailableOnly"] = Model.AvailableOnly ? "true" : null,
+        ["Sort"] = Model.Sort,
+    };
+
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">@ViewData["Title"]</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Q))
+        {
+            <p class="text-muted">pour « @Model.Q »</p>
+        }
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row">
+        <div class="col-lg-3 mb-4">
+            <form method="get" asp-action="Rechercher">
+                <input type="hidden" name="Sort" value="@Model.Sort" />
+                <div class="form-group mb-3">
+                    <label for="Q">Recherche</label>
+                    <input type="text" class="form-control" id="Q" name="Q" value="@Model.Q" placeholder="Nom, description, marque, SKU..." />
+                </div>
+                <div class="form-group mb-3">
+                    <label for="CategoryId">Catégorie</label>
+                    <select class="form-control" id="CategoryId" name="CategoryId" asp-items="Model.AvailableCategories">
+                        <option value="">Toutes</option>
+                    </select>
+                </div>
+                @if (Model.AvailableBrands.Count > 0)
+                {
+                    <div class="form-group mb-3">
+                        <label for="BrandId">Marque</label>
+                        <select class="form-control" id="BrandId" name="BrandId" asp-items="Model.AvailableBrands">
+                            <option value="">Toutes</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-group mb-3">
+                    <label>Prix (CAD)</label>
+                    <div class="d-flex gap-2">
+                        <input type="number" min="0" step="0.01" class="form-control" name="MinPrice" value="@Model.MinPrice" placeholder="Min" />
+                        <input type="number" min="0" step="0.01" class="form-control" name="MaxPrice" value="@Model.MaxPrice" placeholder="Max" />
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="AvailableOnly" name="AvailableOnly" value="true" checked="@Model.AvailableOnly" />
+                    <label class="form-check-label" for="AvailableOnly">En stock uniquement</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+                @if (Model.HasAnyFilter)
+                {
+                    <a asp-action="Rechercher" class="btn btn-outline-secondary w-100 mt-2">Effacer les filtres</a>
+                }
+            </form>
+        </div>
+
+        <div class="col-lg-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">
+                    @if (Model.TotalResults > 0)
+                    {
+                        <text>@Model.TotalResults résultat(s)</text>
+                    }
+                </span>
+                <form method="get" asp-action="Rechercher" class="d-flex align-items-center gap-2">
+                    <input type="hidden" name="Q" value="@Model.Q" />
+                    <input type="hidden" name="CategoryId" value="@Model.CategoryId" />
+                    <input type="hidden" name="BrandId" value="@Model.BrandId" />
+                    <input type="hidden" name="MinPrice" value="@Model.MinPrice" />
+                    <input type="hidden" name="MaxPrice" value="@Model.MaxPrice" />
+                    <input type="hidden" name="AvailableOnly" value="@(Model.AvailableOnly ? "true" : "")" />
+                    <label for="Sort" class="mb-0 text-nowrap">Trier par</label>
+                    <select id="Sort" name="Sort" class="form-control form-control-sm" onchange="this.form.submit()">
+                        <option value="relevance" selected="@(Model.Sort == "relevance")">Pertinence</option>
+                        <option value="price_asc" selected="@(Model.Sort == "price_asc")">Prix croissant</option>
+                        <option value="price_desc" selected="@(Model.Sort == "price_desc")">Prix décroissant</option>
+                        <option value="name_asc" selected="@(Model.Sort == "name_asc")">Nom (A-Z)</option>
+                        <option value="newest" selected="@(Model.Sort == "newest")">Nouveautés</option>
+                    </select>
+                </form>
+            </div>
+
+            @if (Model.Products.Count == 0)
+            {
+                <div class="text-center py-5">
+                    <h4>Aucun produit trouvé</h4>
+                    <p class="text-muted">Essayez de modifier vos filtres ou d'effacer votre recherche.</p>
+                    <a asp-action="Rechercher" class="btn btn-outline-primary me-2">Effacer la recherche</a>
+                    <a asp-action="Index" class="btn btn-primary">Retour au catalogue</a>
+                </div>
+            }
+            else
+            {
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    @foreach (var produit in Model.Products)
+                    {
+                        var enStock = produit.Disponible && produit.Stock > 0;
+                        <div class="col">
+                            <div class="card h-100">
+                                <img src="@Url.Content("~/Images_Produits/" + produit.Image)" class="card-img-top" style="max-height:300px;object-fit:cover;" alt="Image de @produit.Nom" />
+                                <div class="card-body">
+                                    @if (produit.Brand != null)
+                                    {
+                                        <p class="text-muted mb-1">@produit.Brand.Nom</p>
+                                    }
+                                    <h5 class="card-title">@produit.Nom</h5>
+                                    <p class="card-title">@produit.Prix.ToString("0.00") CAD</p>
+                                    @if (!enStock)
+                                    {
+                                        <span class="badge bg-secondary">Rupture de stock</span>
+                                    }
+                                    <div class="mt-2">
+                                        <a class="btn btn-outline-primary btn-sm" asp-action="DetailsBySlug" asp-route-slug="@produit.Slug">
+                                            Voir le produit
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <nav class="mt-4" aria-label="Pagination des résultats">
+                        <ul class="pagination justify-content-center">
+                            @for (var p = 1; p <= Model.TotalPages; p++)
+                            {
+                                <li class="page-item @(p == Model.Page ? "active" : "")">
+                                    <a class="page-link" asp-action="Rechercher" asp-all-route-data="baseRoute" asp-route-Page="@p">@p</a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            }
+        </div>
+    </div>
+</div>

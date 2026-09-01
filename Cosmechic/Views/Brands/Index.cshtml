@@ -1,0 +1,39 @@
+@model IEnumerable<Cosmechic.Models.Brand>
+
+@{
+    ViewData["Title"] = "Marques";
+    if (User.IsInRole("Admin"))
+    {
+        Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    }
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"]</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Ajouter une marque</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nom</th>
+            <th>Slug</th>
+            <th>Disponible</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var brand in Model)
+        {
+            <tr>
+                <td>@brand.Nom</td>
+                <td>@brand.Slug</td>
+                <td>@(brand.Disponible ? "Oui" : "Non")</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@brand.BrandId" class="btn btn-sm btn-outline-primary">Modifier</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

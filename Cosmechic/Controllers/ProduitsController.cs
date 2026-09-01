@@ -49,6 +49,8 @@ namespace Cosmechic.Controllers
 
 
         // GET: Produits/Details/5
+        // Route ID historique, conservée pour compatibilité (COSMECHIC-CATALOG-001,
+        // section 18) : les liens déjà publiés continuent de fonctionner.
         [Authorize]
         public async Task<IActionResult> Details(int? id)
         {
@@ -59,6 +61,9 @@ namespace Cosmechic.Controllers
 
             var produit = await _context.Produits
                 .Include(p => p.Categorie)
+                .Include(p => p.Brand)
+                .Include(p => p.Images)
+                .Include(p => p.Avis)
                 .FirstOrDefaultAsync(m => m.ProduitId == id);
             if (produit == null)
             {
@@ -68,12 +73,36 @@ namespace Cosmechic.Controllers
             return View(produit);
         }
 
+        // GET: /produits/{slug} — route canonique (COSMECHIC-CATALOG-001, section 18).
+        [Authorize]
+        public async Task<IActionResult> DetailsBySlug(string slug)
+        {
+            if (string.IsNullOrWhiteSpace(slug))
+            {
+                return NotFound();
+            }
+
+            var produit = await _context.Produits
+                .Include(p => p.Categorie)
+                .Include(p => p.Brand)
+                .Include(p => p.Images)
+                .Include(p => p.Avis)
+                .FirstOrDefaultAsync(p => p.Slug == slug);
+            if (produit == null)
+            {
+                return NotFound();
+            }
+
+            return View("Details", produit);
+        }
+
         // GET: Produits/Create
         [Authorize(Roles = "Admin")]
         public IActionResult Create(int? Id)
         {
             var categories = _context.Categories.ToList();
             ViewData["CategorieId"] = Id;
+            ViewBag.BrandId = new SelectList(_context.Brands.Where(b => b.Disponible).OrderBy(b => b.Nom), "BrandId", "Nom");
             return View();
         }
 
@@ -81,8 +110,12 @@ namespace Cosmechic.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ProduitId,Nom,CategorieId,Description,Prix,Stock,Disponible,Image")] Produit produit, IFormFile Image)
+        public async Task<IActionResult> Create(
+            [Bind("ProduitId,Nom,CategorieId,Description,Prix,Stock,Disponible,Image,Sku,Slug,BrandId,IngredientsInci,UsageInstructions,Warnings,NetQuantity,SeoTitle,SeoDescription")] Produit produit,
+            IFormFile Image)
         {
+            await ValidateCatalogFieldsAsync(produit, isNew: true);
+
             if (ModelState.IsValid)
             {
                 if (Image != null)
@@ -91,13 +124,26 @@ namespace Cosmechic.Controllers
                     if (!uploadResult.Succeeded)
                     {
                         ModelState.AddModelError(nameof(Image), DescribeUploadError(uploadResult.Outcome));
-                        var categoriesForError = _context.Categories.ToList();
-                        ViewBag.CategorieId = new SelectList(categoriesForError, "CategorieId", "Nom");
-                        return View(produit);
+                        return await ReturnCreateViewWithLookups(produit);
                     }
 
                     produit.Image = uploadResult.StoredFileName!;
+                    produit.Images.Add(new ProduitImage
+                    {
+                        FileName = uploadResult.StoredFileName!,
+                        IsPrimary = true,
+                        SortOrder = 0,
+                        AltText = produit.Nom,
+                    });
                 }
+
+                produit.DateCreation = DateTime.UtcNow;
+                // Placeholder sans effet sur SQL Server : une colonne "rowversion" est
+                // exclue de l'instruction INSERT par EF Core (valeur toujours calculée par
+                // le moteur, jamais par le client) — nécessaire uniquement pour les
+                // fournisseurs qui, contrairement à SQL Server, n'auto-génèrent pas cette
+                // valeur (COSMECHIC-DATA-001/COSMECHIC-CATALOG-001).
+                produit.RowVersion ??= new byte[8];
                 _context.Add(produit);
                 await _context.SaveChangesAsync();
                 return RedirectToAction("Index", "Produits", new { id = produit.CategorieId });
@@ -112,10 +158,65 @@ namespace Cosmechic.Controllers
                     }
                 }
             }
+
+            return await ReturnCreateViewWithLookups(produit);
+        }
+
+        private async Task<IActionResult> ReturnCreateViewWithLookups(Produit produit)
+        {
             var categories = _context.Categories.ToList();
             ViewBag.CategorieId = new SelectList(categories, "CategorieId", "Nom");
-
+            ViewBag.BrandId = new SelectList(await _context.Brands.Where(b => b.Disponible).OrderBy(b => b.Nom).ToListAsync(), "BrandId", "Nom");
             return View(produit);
+        }
+
+        // COSMECHIC-CATALOG-001 (section 16/17) : validation serveur des champs catalogue
+        // introduits ce lot. SKU requis pour tout nouveau produit (jamais généré
+        // arbitrairement — l'admin doit fournir sa propre référence commerciale) ; Slug
+        // auto-généré depuis le nom si l'admin le laisse vide, mais jamais régénéré une
+        // fois existant (un renommage ne casse pas les liens publiés). Unicité vérifiée
+        // explicitement (message clair) plutôt que de laisser remonter la violation de
+        // contrainte SQL brute.
+        private async Task ValidateCatalogFieldsAsync(Produit produit, bool isNew)
+        {
+            produit.Sku = produit.Sku?.Trim();
+            if (string.IsNullOrEmpty(produit.Sku))
+            {
+                if (isNew)
+                {
+                    ModelState.AddModelError(nameof(Produit.Sku), "Le SKU est requis pour un nouveau produit.");
+                }
+            }
+            else
+            {
+                var skuTaken = await _context.Produits.AnyAsync(p => p.Sku == produit.Sku && p.ProduitId != produit.ProduitId);
+                if (skuTaken)
+                {
+                    ModelState.AddModelError(nameof(Produit.Sku), "Ce SKU est déjà utilisé par un autre produit.");
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(produit.Slug))
+            {
+                var baseSlug = SlugGenerator.Slugify(produit.Nom ?? string.Empty);
+                var candidate = baseSlug;
+                var suffix = 2;
+                while (await _context.Produits.AnyAsync(p => p.Slug == candidate && p.ProduitId != produit.ProduitId))
+                {
+                    candidate = $"{baseSlug}-{suffix}";
+                    suffix++;
+                }
+                produit.Slug = candidate;
+            }
+            else
+            {
+                produit.Slug = SlugGenerator.Slugify(produit.Slug);
+                var slugTaken = await _context.Produits.AnyAsync(p => p.Slug == produit.Slug && p.ProduitId != produit.ProduitId);
+                if (slugTaken)
+                {
+                    ModelState.AddModelError(nameof(Produit.Slug), "Ce slug est déjà utilisé par un autre produit.");
+                }
+            }
         }
 
         // GET: Produits/Edit/5
@@ -127,30 +228,48 @@ namespace Cosmechic.Controllers
                 return NotFound();
             }
 
-            var produit = await _context.Produits.FindAsync(id);
+            var produit = await _context.Produits.Include(p => p.Images).FirstOrDefaultAsync(p => p.ProduitId == id);
             if (produit == null)
             {
                 return NotFound();
             }
             var categories = _context.Categories.ToList();
             ViewBag.CategorieId = new SelectList(categories, "CategorieId", "Nom");
+            ViewBag.BrandId = new SelectList(_context.Brands.Where(b => b.Disponible).OrderBy(b => b.Nom), "BrandId", "Nom", produit.BrandId);
 
             return View(produit);
         }
 
         // POST: Produits/Edit/5
+        // COSMECHIC-CATALOG-001 (section 36) : récupère l'entité existante puis n'applique
+        // que les champs réellement modifiables par ce formulaire, au lieu d'un
+        // _context.Update(produit) sur une instance reconstituée par le binder — ce dernier
+        // aurait silencieusement écrasé DateCreation/RowVersion/NombreVentes (jamais liés)
+        // à leur valeur par défaut à chaque modification (section 36 : "ne doit pas...
+        // reset stock unexpectedly").
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ProduitId,Nom,CategorieId,Description,Prix,Stock,Disponible,Image")] Produit produit, IFormFile Image)
+        public async Task<IActionResult> Edit(
+            int id,
+            [Bind("ProduitId,Nom,CategorieId,Description,Prix,Stock,Disponible,Image,Sku,Slug,BrandId,IngredientsInci,UsageInstructions,Warnings,NetQuantity,SeoTitle,SeoDescription")] Produit posted,
+            IFormFile Image)
         {
-            if (id != produit.ProduitId)
+            if (id != posted.ProduitId)
             {
                 return NotFound();
             }
 
+            await ValidateCatalogFieldsAsync(posted, isNew: false);
+
             if (ModelState.IsValid)
             {
+                var produit = await _context.Produits.FirstOrDefaultAsync(p => p.ProduitId == id);
+                if (produit == null)
+                {
+                    return NotFound();
+                }
+
                 try
                 {
                     if (Image != null)
@@ -159,14 +278,43 @@ namespace Cosmechic.Controllers
                         if (!uploadResult.Succeeded)
                         {
                             ModelState.AddModelError(nameof(Image), DescribeUploadError(uploadResult.Outcome));
-                            var categoriesForError = _context.Categories.ToList();
-                            ViewBag.CategorieId = new SelectList(categoriesForError, "CategorieId", "Nom");
-                            return View(produit);
+                            return await ReturnEditViewWithLookups(posted);
                         }
 
-                        produit.Image = uploadResult.StoredFileName!;
+                        posted.Image = uploadResult.StoredFileName!;
+                        _context.ProduitImages.Add(new ProduitImage
+                        {
+                            ProduitId = produit.ProduitId,
+                            FileName = uploadResult.StoredFileName!,
+                            IsPrimary = true,
+                            SortOrder = 0,
+                            AltText = posted.Nom,
+                        });
+                        foreach (var existingImage in await _context.ProduitImages.Where(pi => pi.ProduitId == produit.ProduitId && pi.IsPrimary).ToListAsync())
+                        {
+                            existingImage.IsPrimary = false;
+                        }
                     }
-                    _context.Update(produit);
+
+                    produit.Nom = posted.Nom;
+                    produit.CategorieId = posted.CategorieId;
+                    produit.Description = posted.Description;
+                    produit.Prix = posted.Prix;
+                    produit.Stock = posted.Stock;
+                    produit.Disponible = posted.Disponible;
+                    produit.Sku = posted.Sku;
+                    produit.Slug = posted.Slug;
+                    produit.BrandId = posted.BrandId;
+                    produit.IngredientsInci = posted.IngredientsInci;
+                    produit.UsageInstructions = posted.UsageInstructions;
+                    produit.Warnings = posted.Warnings;
+                    produit.NetQuantity = posted.NetQuantity;
+                    produit.SeoTitle = posted.SeoTitle;
+                    produit.SeoDescription = posted.SeoDescription;
+                    if (Image != null)
+                    {
+                        produit.Image = posted.Image;
+                    }
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
@@ -182,11 +330,137 @@ namespace Cosmechic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+            return await ReturnEditViewWithLookups(posted);
+        }
+
+        private async Task<IActionResult> ReturnEditViewWithLookups(Produit produit)
+        {
             var categories = _context.Categories.ToList();
             ViewBag.CategorieId = new SelectList(categories, "CategorieId", "Nom");
+            ViewBag.BrandId = new SelectList(await _context.Brands.Where(b => b.Disponible).OrderBy(b => b.Nom).ToListAsync(), "BrandId", "Nom", produit.BrandId);
             return View(produit);
         }
 
+
+        // GET: Produits/ManageImages/5 — galerie d'images multiples (COSMECHIC-CATALOG-001,
+        // section 30). Réutilise IProductImageUploadService (COSMECHIC-SECURITY-002) : aucun
+        // nouveau chemin d'upload non sécurisé.
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ManageImages(int id)
+        {
+            var produit = await _context.Produits.Include(p => p.Images).FirstOrDefaultAsync(p => p.ProduitId == id);
+            if (produit == null)
+            {
+                return NotFound();
+            }
+
+            return View(produit);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddImage(int id, IFormFile file, string? altText)
+        {
+            var produit = await _context.Produits.FirstOrDefaultAsync(p => p.ProduitId == id);
+            if (produit == null)
+            {
+                return NotFound();
+            }
+
+            if (file == null)
+            {
+                TempData["error"] = "Aucun fichier fourni.";
+                return RedirectToAction(nameof(ManageImages), new { id });
+            }
+
+            var uploadResult = await _imageUploadService.SaveAsync(file, ImagesSubfolder);
+            if (!uploadResult.Succeeded)
+            {
+                TempData["error"] = DescribeUploadError(uploadResult.Outcome);
+                return RedirectToAction(nameof(ManageImages), new { id });
+            }
+
+            var hasPrimary = await _context.ProduitImages.AnyAsync(pi => pi.ProduitId == id && pi.IsPrimary);
+            var maxSortOrder = await _context.ProduitImages.Where(pi => pi.ProduitId == id).Select(pi => (int?)pi.SortOrder).MaxAsync() ?? -1;
+
+            _context.ProduitImages.Add(new ProduitImage
+            {
+                ProduitId = id,
+                FileName = uploadResult.StoredFileName!,
+                AltText = string.IsNullOrWhiteSpace(altText) ? produit.Nom : altText.Trim(),
+                SortOrder = maxSortOrder + 1,
+                // COSMECHIC-CATALOG-001 (section 32) : invariant 0-ou-1 image primaire —
+                // la toute première image ajoutée devient automatiquement primaire.
+                IsPrimary = !hasPrimary,
+            });
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(ManageImages), new { id });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPrimaryImage(int id, int imageId)
+        {
+            // COSMECHIC-CATALOG-001 (section 32) : jamais plus d'une image primaire par
+            // produit — toutes les autres sont explicitement désactivées dans la même
+            // opération.
+            var images = await _context.ProduitImages.Where(pi => pi.ProduitId == id).ToListAsync();
+            var target = images.FirstOrDefault(pi => pi.ProduitImageId == imageId);
+            if (target == null)
+            {
+                return NotFound();
+            }
+
+            foreach (var image in images)
+            {
+                image.IsPrimary = image.ProduitImageId == imageId;
+            }
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(ManageImages), new { id });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteImage(int id, int imageId)
+        {
+            // COSMECHIC-CATALOG-001 (section 33) : suppression physique uniquement si
+            // l'enregistrement appartient bien au produit de la route (ownership) et
+            // uniquement le nom de fichier stocké en base (toujours un GUID généré
+            // serveur, jamais une entrée client) — aucun chemin ne peut sortir du
+            // répertoire géré.
+            var image = await _context.ProduitImages.FirstOrDefaultAsync(pi => pi.ProduitImageId == imageId && pi.ProduitId == id);
+            if (image == null)
+            {
+                return NotFound();
+            }
+
+            var filePath = Path.Combine(_hostingEnvironment.WebRootPath, ImagesSubfolder, image.FileName);
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+
+            var wasPrimary = image.IsPrimary;
+            _context.ProduitImages.Remove(image);
+            await _context.SaveChangesAsync();
+
+            if (wasPrimary)
+            {
+                var next = await _context.ProduitImages.Where(pi => pi.ProduitId == id).OrderBy(pi => pi.SortOrder).FirstOrDefaultAsync();
+                if (next != null)
+                {
+                    next.IsPrimary = true;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return RedirectToAction(nameof(ManageImages), new { id });
+        }
 
         // GET: Produits/Delete/5
         [Authorize(Roles = "Admin")]
@@ -212,20 +486,51 @@ namespace Cosmechic.Controllers
         [HttpPost, ActionName("Delete")]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
+        // COSMECHIC-CATALOG-001 (section 37) : une suppression physique d'un produit
+        // référencé par un historique de commande (OrderDetails) ou un avis (Avis) est
+        // bloquée au niveau base (FK_OrderDetails_Produits/FK_Avis_Produits en
+        // ClientSetNull sur colonnes non-nullables => NO ACTION réel côté SQL Server) —
+        // avant, ceci provoquait un DbUpdateException non intercepté (crash 500). Un
+        // produit avec historique est désormais désactivé (Disponible = false) plutôt que
+        // supprimé ; seul un produit réellement sans historique est physiquement retiré
+        // (avec ses images sur disque, la table ProduitImages étant en Cascade).
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             if (_context.Produits == null)
             {
                 return Problem("Entity set 'CosmechicContext.Produits'  is null.");
             }
-            var produit = await _context.Produits.FindAsync(id);
-            if (produit != null)
+
+            var produit = await _context.Produits.Include(p => p.Images).FirstOrDefaultAsync(p => p.ProduitId == id);
+            if (produit == null)
             {
-                _context.Produits.Remove(produit);
-                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
 
-            return RedirectToAction(nameof(Index));
+            var hasHistory = await _context.OrderDetails.AnyAsync(od => od.ProduitId == id)
+                || await _context.Avis.AnyAsync(a => a.ProduitId == id);
+
+            if (hasHistory)
+            {
+                produit.Disponible = false;
+                await _context.SaveChangesAsync();
+                TempData["success"] = "Ce produit a un historique de commandes/avis : il a été désactivé plutôt que supprimé.";
+                return RedirectToAction(nameof(Index), new { id = produit.CategorieId });
+            }
+
+            foreach (var image in produit.Images)
+            {
+                var filePath = Path.Combine(_hostingEnvironment.WebRootPath, ImagesSubfolder, image.FileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+            }
+
+            _context.Produits.Remove(produit);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index), new { id = produit.CategorieId });
         }
 
         private bool ProduitExists(int id)
@@ -243,26 +548,110 @@ namespace Cosmechic.Controllers
             _ => "Fichier image invalide.",
         };
 
-        public async Task<IActionResult> Rechercher(string query)
+        // COSMECHIC-CATALOG-001 (section 5/6) : corrige SEARCH-001 — l'ancienne
+        // implémentation rendait "ResultatsRecherche" alors que cette vue n'existait pas
+        // (crash systématique dès que la recherche ne tombait pas sur une correspondance
+        // exacte unique). Redirection automatique supprimée : la recherche reste
+        // prévisible (section 6), toujours une vraie page de résultats (0/1/N), jamais un
+        // saut de fiche produit surprenant. GET uniquement : entièrement "bookmarkable"
+        // (section 42).
+        public async Task<IActionResult> Rechercher(CatalogSearchViewModel filters)
         {
-            if (string.IsNullOrWhiteSpace(query))
+            filters ??= new CatalogSearchViewModel();
+
+            // Normalisation/bornage (section 9/13) : jamais d'exception ni de requête
+            // dégénérée à cause d'une entrée client invalide.
+            if (filters.Page < 1) filters.Page = 1;
+            if (filters.PageSize < 1) filters.PageSize = CatalogSearchViewModel.DefaultPageSize;
+            if (filters.PageSize > CatalogSearchViewModel.MaxPageSize) filters.PageSize = CatalogSearchViewModel.MaxPageSize;
+            if (filters.MinPrice is < 0) filters.MinPrice = 0;
+            if (filters.MaxPrice is < 0) filters.MaxPrice = 0;
+            if (filters.MinPrice.HasValue && filters.MaxPrice.HasValue && filters.MinPrice > filters.MaxPrice)
             {
-                return View("Index");
+                (filters.MinPrice, filters.MaxPrice) = (filters.MaxPrice, filters.MinPrice);
             }
 
-            var produit = await _context.Produits
-                                        .FirstOrDefaultAsync(p => p.Nom.Contains(query));
-            if (produit != null)
+            IQueryable<Produit> query = _context.Produits
+                .Include(p => p.Categorie)
+                .Include(p => p.Brand)
+                .Include(p => p.Images);
+
+            var term = filters.Q?.Trim();
+            if (!string.IsNullOrEmpty(term))
             {
-                return RedirectToAction("Details", new { id = produit.ProduitId });
+                // COSMECHIC-CATALOG-001 (section 7) : insensible à la casse ET aux accents
+                // via la collation SQL Server, pas de bricolage côté client — vérifié
+                // empiriquement contre SQL Server réel (COLLATE Latin1_General_CI_AI).
+                query = query.Where(p =>
+                    EF.Functions.Collate(p.Nom, "Latin1_General_CI_AI").Contains(term) ||
+                    (p.Description != null && EF.Functions.Collate(p.Description, "Latin1_General_CI_AI").Contains(term)) ||
+                    EF.Functions.Collate(p.Categorie.Nom, "Latin1_General_CI_AI").Contains(term) ||
+                    (p.Brand != null && EF.Functions.Collate(p.Brand.Nom, "Latin1_General_CI_AI").Contains(term)) ||
+                    (p.Sku != null && EF.Functions.Collate(p.Sku, "Latin1_General_CI_AI").Contains(term)));
             }
-            else
+
+            if (filters.CategoryId.HasValue)
             {
-                var produits = await _context.Produits
-                                             .Where(p => p.Nom.Contains(query))
-                                             .ToListAsync();
-                return View("ResultatsRecherche", produits);
+                query = query.Where(p => p.CategorieId == filters.CategoryId);
             }
+
+            if (filters.BrandId.HasValue)
+            {
+                query = query.Where(p => p.BrandId == filters.BrandId);
+            }
+
+            if (filters.MinPrice.HasValue)
+            {
+                query = query.Where(p => p.Prix >= filters.MinPrice);
+            }
+
+            if (filters.MaxPrice.HasValue)
+            {
+                query = query.Where(p => p.Prix <= filters.MaxPrice);
+            }
+
+            if (filters.AvailableOnly)
+            {
+                // COSMECHIC-CATALOG-001 (section 23) : disponibilité client = publié
+                // (Disponible) ET en stock — jamais l'un sans l'autre.
+                query = query.Where(p => p.Disponible && p.Stock > 0);
+            }
+
+            query = filters.Sort switch
+            {
+                "price_asc" => query.OrderBy(p => p.Prix),
+                "price_desc" => query.OrderByDescending(p => p.Prix),
+                "name_asc" => query.OrderBy(p => p.Nom),
+                "newest" => query.OrderByDescending(p => p.DateCreation),
+                // "relevance" (défaut) : pas de moteur de scoring — un tri stable et
+                // honnête (nom croissant) plutôt qu'une fausse pertinence.
+                _ => query.OrderBy(p => p.Nom),
+            };
+
+            filters.TotalResults = await query.CountAsync();
+            filters.TotalPages = filters.TotalResults == 0 ? 0 : (int)Math.Ceiling(filters.TotalResults / (double)filters.PageSize);
+            if (filters.TotalPages > 0 && filters.Page > filters.TotalPages)
+            {
+                filters.Page = filters.TotalPages;
+            }
+
+            filters.Products = await query
+                .Skip((filters.Page - 1) * filters.PageSize)
+                .Take(filters.PageSize)
+                .ToListAsync();
+
+            filters.AvailableCategories = await _context.Categories
+                .OrderBy(c => c.Nom)
+                .Select(c => new SelectListItem(c.Nom, c.CategorieId.ToString()))
+                .ToListAsync();
+
+            filters.AvailableBrands = await _context.Brands
+                .Where(b => b.Disponible)
+                .OrderBy(b => b.Nom)
+                .Select(b => new SelectListItem(b.Nom, b.BrandId.ToString()))
+                .ToListAsync();
+
+            return View("ResultatsRecherche", filters);
         }
 
         public IActionResult ItemDetails(int productId)

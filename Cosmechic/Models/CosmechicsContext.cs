@@ -31,7 +31,11 @@ public partial class CosmechicsContext : DbContext
 
     public virtual DbSet<BlogPost> BlogPosts { get; set; }
 
+    public virtual DbSet<Brand> Brands { get; set; }
+
     public virtual DbSet<Category> Categories { get; set; }
+
+    public virtual DbSet<ProduitImage> ProduitImages { get; set; }
 
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
 
@@ -207,6 +211,15 @@ public partial class CosmechicsContext : DbContext
             entity.Property(e => e.Nom)
                 .HasMaxLength(450)
                 .IsFixedLength();
+            entity.Property(e => e.Slug).HasMaxLength(450);
+
+            // Index unique filtré (WHERE NOT NULL) : permet un rétro-remplissage progressif
+            // sans exiger une valeur immédiate sur les lignes historiques (COSMECHIC-CATALOG-001,
+            // section 49).
+            entity.HasIndex(e => e.Slug)
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL")
+                .HasDatabaseName("IX_Categories_Slug");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>
@@ -267,6 +280,69 @@ public partial class CosmechicsContext : DbContext
                 .HasForeignKey(d => d.CategorieId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Produits_Categories");
+
+            // COSMECHIC-CATALOG-001 : champs catalogue. Sku/Slug nullable en base (rétro-
+            // remplissage progressif via CatalogBackfillService, section 49/50) mais
+            // uniques dès qu'une valeur est présente ; requis par validation applicative
+            // pour tout produit créé après ce lot (section 16/17).
+            entity.Property(e => e.Sku).HasMaxLength(64);
+            entity.Property(e => e.Slug).HasMaxLength(450);
+            entity.Property(e => e.IngredientsInci).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.UsageInstructions).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.Warnings).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NetQuantity).HasMaxLength(100);
+            entity.Property(e => e.SeoTitle).HasMaxLength(200);
+            entity.Property(e => e.SeoDescription).HasMaxLength(500);
+            entity.Property(e => e.DateCreation).HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasIndex(e => e.Sku)
+                .IsUnique()
+                .HasFilter("[Sku] IS NOT NULL")
+                .HasDatabaseName("IX_Produits_Sku");
+
+            entity.HasIndex(e => e.Slug)
+                .IsUnique()
+                .HasFilter("[Slug] IS NOT NULL")
+                .HasDatabaseName("IX_Produits_Slug");
+
+            entity.HasIndex(e => e.BrandId).HasDatabaseName("IX_Produits_BrandId");
+            entity.HasIndex(e => e.Disponible).HasDatabaseName("IX_Produits_Disponible");
+
+            // Restrict plutôt que SetNull : une marque référencée par au moins un produit
+            // ne doit jamais être supprimée physiquement — l'admin Brand n'expose que la
+            // désactivation (section 39), ceci est le filet de sécurité au niveau DB.
+            entity.HasOne(d => d.Brand).WithMany(b => b.Produits)
+                .HasForeignKey(d => d.BrandId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Produits_Brands");
+        });
+
+        modelBuilder.Entity<Brand>(entity =>
+        {
+            entity.HasKey(e => e.BrandId);
+
+            entity.Property(e => e.Nom).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Slug).HasMaxLength(200).IsRequired();
+
+            entity.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("IX_Brands_Slug");
+            entity.HasIndex(e => e.Nom).IsUnique().HasDatabaseName("IX_Brands_Nom");
+        });
+
+        modelBuilder.Entity<ProduitImage>(entity =>
+        {
+            entity.HasKey(e => e.ProduitImageId);
+
+            entity.Property(e => e.FileName).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.AltText).HasMaxLength(300);
+
+            entity.HasIndex(e => e.ProduitId).HasDatabaseName("IX_ProduitImages_ProduitId");
+
+            // Cascade : les images n'ont aucune existence hors de leur produit (contrairement
+            // à Produit lui-même, qui reste protégé par OrderDetails/Avis).
+            entity.HasOne(d => d.Produit).WithMany(p => p.Images)
+                .HasForeignKey(d => d.ProduitId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_ProduitImages_Produits");
         });
 
         modelBuilder.Entity<Promotion>(entity =>
