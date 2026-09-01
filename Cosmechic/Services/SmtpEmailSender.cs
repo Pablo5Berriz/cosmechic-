@@ -40,6 +40,14 @@ namespace Cosmechic.Services
             using var client = new SmtpClient();
             var socketOptions = settings.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
 
+            // COSMECHIC-QA-RELEASE-001 (section 15) : reproduit en environnement réel —
+            // le délai de connexion par défaut de MailKit (~100s) fait que
+            // Register/ForgotPassword restent bloqués une minute et demie avant que
+            // l'échec ne soit détecté quand l'hôte SMTP configuré est injoignable, avant
+            // même le try/catch de l'appelant. Borne le délai de connexion à 15s : assez
+            // pour un relais SMTP réel mais légèrement lent, sans faire attendre
+            // l'utilisateur une minute et demie sur une page de formulaire.
+            client.Timeout = 15000;
             await client.ConnectAsync(settings.Host, settings.Port, socketOptions);
             try
             {
