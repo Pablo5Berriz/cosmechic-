@@ -7,7 +7,7 @@
 
 <section class="py-5" style="margin-top: 100px;">
 	<div class="text-center">
-		<h1 class="fw-folder" style="color:darkblue">
+		<h1 class="fw-bold" style="color:darkblue">
 			@ViewData["Title"]
 		</h1>
 	</div>
@@ -77,9 +77,13 @@
 										</div>
 									</fieldset>
 								}
+							@* COSMECHIC-UX-001 (section 18) : les <label> n'étaient pas associés à leur
+							   champ (pas d'attribut for) — un lecteur d'écran ne pouvait pas relier
+							   "Nom"/"Téléphone"/etc. à l'input correspondant. asp-for sur <label>
+							   génère l'attribut for correspondant à l'id réel du champ. *@
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Nom</label>
+									<label asp-for="Input.Name" class="cx-required">Nom</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.Name" class="form-control"/>
@@ -88,7 +92,7 @@
 							</div>
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Téléphone</label>
+									<label asp-for="Input.PhoneNumber" class="cx-required">Téléphone</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.PhoneNumber" class="form-control"/>
@@ -97,7 +101,7 @@
 							</div>
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Addresse</label>
+									<label asp-for="Input.StreetAddress" class="cx-required">Addresse</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.StreetAddress" class="form-control"/>
@@ -106,7 +110,7 @@
 							</div>
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Ville</label>
+									<label asp-for="Input.City" class="cx-required">Ville</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.City" class="form-control"/>
@@ -115,7 +119,10 @@
 							</div>
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Province</label>
+									@* L'input ci-contre porte id="stateInput" (référencé par le script de
+									   recalcul plus bas) plutôt que l'id "Input_State" généré par défaut —
+									   le label est donc associé explicitement à cet id réel. *@
+									<label for="stateInput" class="cx-required">Province</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.State" id="stateInput" class="form-control" placeholder="ex. QC" />
@@ -124,7 +131,7 @@
 							</div>
 							<div class="row my-1">
 								<div class="col-3">
-									<label>Code Postal</label>
+									<label asp-for="Input.PostalCode" class="cx-required">Code Postal</label>
 								</div>
 								<div class="col-9">
 									<input asp-for="Input.PostalCode" class="form-control"/>
@@ -214,7 +221,7 @@
 								<div class="col-md-8">
 								</div>
 								<div class="col-md-4">
-									<button type="submit" value="Place Order" class="btn btn-primary btn-block">Passer au paiement</button>
+									<button type="submit" id="checkout-submit" value="Place Order" class="btn btn-primary btn-block">Passer au paiement</button>
 								</div>
 							</div>
 						</div>
@@ -319,5 +326,19 @@
 		}
 
 		recompute();
+
+		// COSMECHIC-UX-001 (section 12) : évite une double soumission (double-clic,
+		// double appui sur mobile) qui créerait deux sessions Stripe distinctes pour
+		// la même commande. N'affecte jamais le total facturé — recalculé côté
+		// serveur dans tous les cas (OrderCheckoutService), ce script est purement
+		// un état de chargement visuel.
+		var checkoutForm = document.getElementById('checkout-form');
+		var checkoutSubmit = document.getElementById('checkout-submit');
+		if (checkoutForm && checkoutSubmit) {
+			checkoutForm.addEventListener('submit', function () {
+				checkoutSubmit.classList.add('cx-loading');
+				checkoutSubmit.setAttribute('disabled', 'disabled');
+			});
+		}
 	})();
 </script>

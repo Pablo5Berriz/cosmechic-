@@ -6,7 +6,7 @@
 
 <section class="py-5">
     <div class="text-center">
-        <h1 class="fw-folder" style="color: darkblue;">
+        <h1 class="fw-bold" style="color: darkblue;">
             @ViewData["Title"]
         </h1>
     </div>
@@ -50,48 +50,63 @@
 
 <section>
     <div class="container">
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-            @foreach (var item in Model)
-            {
-                <div class="col">
-                    <div class="card h-100">
-                        <img src="@Url.Content("~/Images Categories/" + item.Image)" class="card-img-top img-fluid" alt="Image de @item.Nom">
-                        <div class="card-body">
-                            <h5 class="card-title">@item.Nom</h5>
-                            <span class="badge bg-success text-white">@(item.Disponible ? "Disponible" : "Non disponible")</span>
-                            <a href="@Url.Action("Customer", "Produits", new { id = item.CategorieId })" class="btn btn-primary">Voir Produits</a>
+        @if (!Model.Any())
+        {
+            <div class="cx-empty-state">
+                <i class="bi bi-grid" aria-hidden="true"></i>
+                <p class="mb-0">Aucune catégorie disponible pour le moment.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                @foreach (var item in Model)
+                {
+                    <div class="col">
+                        <div class="card cx-card-hover h-100">
+                            <img src="@Url.Content("~/Images Categories/" + item.Image)" class="card-img-top img-fluid" alt="@item.Nom">
+                            <div class="card-body">
+                                <h2 class="card-title h5">@item.Nom</h2>
+                                @* COSMECHIC-UX-001 : le badge affichait toujours "bg-success" (vert),
+                                   y compris pour une catégorie marquée "Non disponible" — signal visuel
+                                   contradictoire. La couleur reflète maintenant l'état réel. *@
+                                <span class="badge @(item.Disponible ? "bg-success" : "bg-secondary") text-white">@(item.Disponible ? "Disponible" : "Non disponible")</span>
+                                <div class="mt-2">
+                                    <a href="@Url.Action("Customer", "Produits", new { id = item.CategorieId })" class="btn btn-primary">Voir les produits</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                }
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="mt-4" aria-label="Pagination des catégories">
+                    <ul class="pagination justify-content-center">
+                        @if (Model.HasPreviousPage)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@Url.Action("Customer", new { page = Model.PageIndex - 1 })">Précédent</a>
+                            </li>
+                        }
+
+                        @for (int i = 1; i <= Model.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == Model.PageIndex ? "active" : "")">
+                                <a class="page-link" href="@Url.Action("Customer", new { page = i })">@i</a>
+                            </li>
+                        }
+
+                        @if (Model.HasNextPage)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@Url.Action("Customer", new { page = Model.PageIndex + 1 })">Suivant</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
             }
-        </div>
+        }
     </div>
 </section>
-
-
-
-<!-- Pagination -->
-<nav aria-label="Page navigation">
-    <ul class="pagination justify-content-center">
-        @if (Model.HasPreviousPage)
-        {
-            <li class="page-item">
-                <a class="page-link" href="@Url.Action("Customer", new { page = Model.PageIndex - 1 })">Précédent</a>
-            </li>
-        }
-
-        @for (int i = 1; i <= Model.TotalPages; i++)
-        {
-            <li class="page-item @(i == Model.PageIndex ? "active" : "")">
-                <a class="page-link" href="@Url.Action("Customer", new { page = i })">@i</a>
-            </li>
-        }
-
-        @if (Model.HasNextPage)
-        {
-            <li class="page-item">
-                <a class="page-link" href="@Url.Action("Customer", new { page = Model.PageIndex + 1 })">Suivant</a>
-            </li>
-        }
-    </ul>
-</nav>

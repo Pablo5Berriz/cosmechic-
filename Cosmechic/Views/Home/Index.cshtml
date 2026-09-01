@@ -1,15 +1,20 @@
 ﻿@model Cosmechic.ViewModels.HomeIndexViewModel
 
+@{
+    ViewData["Title"] = "Accueil";
+    ViewData["MetaDescription"] = "Cosmechic, boutique en ligne de produits cosmétiques pour les personnes afro, noires et métissées.";
+}
+
+@* COSMECHIC-UX-001 (section 8) : styles spécifiques à la page réduits au strict
+   nécessaire (bannière, animation d'entrée) — la mise en page des cartes/grilles
+   réutilise désormais les classes Bootstrap + design-system.css (.cx-product-card,
+   .cx-card-hover) plutôt qu'une largeur de carte fixe (450px) qui provoquait un
+   débordement horizontal sur mobile. *@
 <style>
-    /* Global */
     body {
-        background-color: ghostwhite;
-        font-family: 'Merriweather Sans', sans-serif;
-        margin: 0;
-        padding: 0;
+        background-color: var(--cx-color-bg, ghostwhite);
     }
 
-    /* Animation keyframes */
     @@keyframes fadeInUp {
         from {
             opacity: 0;
@@ -22,17 +27,22 @@
         }
     }
 
-    /* Appliquée à chaque section pour gérer l'espacement et l'animation */
     .animate-section {
         margin-bottom: 100px;
         animation: fadeInUp 1s ease-out both;
     }
 
-    /* Bannière principale */
+    @@media (prefers-reduced-motion: reduce) {
+        .animate-section {
+            animation: none;
+        }
+    }
+
     .banner {
         position: relative;
         width: 100%;
         height: 70vh;
+        min-height: 320px;
         overflow: hidden;
     }
 
@@ -52,51 +62,13 @@
         background: rgba(0, 0, 0, 0.5);
         padding: 30px;
         border-radius: 10px;
+        max-width: 90%;
     }
 
-    /* Titres de section */
     .section-heading {
         margin-top: 50px;
         margin-bottom: 30px;
         text-align: center;
-    }
-
-    /* Cartes (Best-Sellers, Blog, etc.) */
-    .card {
-        margin-bottom: 30px;
-        width: 450px;
-    }
-
-    /* Images produits et catégories */
-    .product-image {
-        width: 100%;
-        height: auto;
-        object-fit: contain;
-    }
-
-    /* Promo cards */
-    .promo-card {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 30px;
-    }
-
-    /* Témoignages */
-    .testimonial {
-        border: 1px solid #ddd;
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #fff;
-        margin-bottom: 30px;
-    }
-
-    /* Newsletter */
-    .newsletter input[type="email"] {
-        max-width: 400px;
-        margin: 0 auto;
     }
 </style>
 
@@ -128,21 +100,33 @@
         <div class="section-heading text-center">
             <h2>Nos Best-Sellers</h2>
         </div>
-        <div class="d-flex flex-wrap justify-content-center gap-4">
-            @foreach (var produit in Model.BestSellers)
-            {
-                <div class="card">
-                    <img src="@Url.Content("~/Images_Produits/" + produit.Image)" class="card-img-top product-image" alt="@produit.Nom">
-                    <div class="card-body">
-                        <h5 class="card-title">@produit.Nom</h5>
-                        <p class="card-text">Prix: @produit.Prix CAD</p>
-                        <a class="btn btn-outline-primary" asp-controller="Produits" asp-action="ItemDetails" asp-route-productId="@produit.ProduitId">
-                            <i class="bi bi-cart-plus"></i> Ajouter
-                        </a>
+        @if (!Model.BestSellers.Any())
+        {
+            <div class="cx-empty-state">
+                <i class="bi bi-bag" aria-hidden="true"></i>
+                <p class="mb-0">Aucun produit à afficher pour le moment.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 justify-content-center">
+                @foreach (var produit in Model.BestSellers)
+                {
+                    <div class="col">
+                        <div class="card cx-product-card cx-card-hover h-100">
+                            <img src="@Url.Content("~/Images_Produits/" + produit.Image)" class="card-img-top" alt="@produit.Nom">
+                            <div class="card-body">
+                                <h3 class="card-title h5">@produit.Nom</h3>
+                                <p class="card-text">@produit.Prix.ToString("0.00") CAD</p>
+                                <a class="btn btn-outline-primary" asp-controller="Produits" asp-action="ItemDetails" asp-route-productId="@produit.ProduitId">
+                                    <i class="bi bi-cart-plus" aria-hidden="true"></i> Voir le produit
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            }
-        </div>
+                }
+            </div>
+        }
     </section>
 
     <!-- 4. Promotions & Offres Spéciales -->
@@ -164,27 +148,32 @@
         </div>
     </section>
 
-    <!-- 5. Blog & Conseils Beauté -->
-    <section class="animate-section container-fluid">
-        <div class="section-heading text-center">
-            <h2>Blog & Conseils Beauté</h2>
-        </div>
-        <div class="d-flex flex-wrap justify-content-center gap-4">
-            @foreach (var article in Model.ArticlesBlog)
-            {
-                <div class="col-md-4">
-                    <div class="card">
-                        <img src="@Url.Content("~/Images_Blog/" + article.Image)" class="card-img-top category-image" alt="@article.Titre">
-                        <div class="card-body">
-                            <h5 class="card-title">@article.Titre</h5>
-                            <p class="card-text">@article.Extrait</p>
-                            <a href="#" class="btn btn-outline-secondary">Lire l'article</a>
+    @* COSMECHIC-UX-001 : le bouton "Lire l'article" pointait vers href="#" — aucune
+       page de détail d'article n'est implémentée dans l'application (pas de route
+       Blog/Details). Plutôt que de fabriquer un lien mort ou une fausse promesse,
+       l'aperçu de l'extrait est conservé sans CTA cliquable. *@
+    @if (Model.ArticlesBlog.Any())
+    {
+        <section class="animate-section container-fluid">
+            <div class="section-heading text-center">
+                <h2>Blog & Conseils Beauté</h2>
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 justify-content-center">
+                @foreach (var article in Model.ArticlesBlog)
+                {
+                    <div class="col">
+                        <div class="card cx-card-hover h-100">
+                            <img src="@Url.Content("~/Images_Blog/" + article.Image)" class="card-img-top" alt="@article.Titre">
+                            <div class="card-body">
+                                <h3 class="card-title h5">@article.Titre</h3>
+                                <p class="card-text">@article.Extrait</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
-        </div>
-    </section>
+                }
+            </div>
+        </section>
+    }
 
     <!-- 6. Témoignages Clients -->
     <section class="animate-section container">
@@ -219,57 +208,39 @@
         </div>
     </section>
 
-    <!-- 7. Newsletter -->
-    <section class="animate-section container text-center newsletter">
+    @* COSMECHIC-UX-001 : la section "Newsletter" ne postait nulle part (aucune
+       action de formulaire, aucun backend) — fonctionnalité fictive contredisant
+       en plus la page Confidentialité ("Cosmechic n'utilise pas vos données à des
+       fins marketing"). Supprimée plutôt que maquillée. Le second formulaire de
+       contact postait vers un service tiers externe (formspree.io), en dehors de
+       toute protection CSRF/rate limiting et sans lien avec le vrai backend
+       Contact construit dans COSMECHIC-CONTENT-LEGAL-001 — remplacé par un renvoi
+       vers la page /Home/Contact réelle plutôt qu'une page dupliquée. *@
+    <section class="animate-section container text-center" style="padding: 50px 20px;">
         <div class="section-heading">
-            <h2>Abonnez-vous à notre Newsletter</h2>
+            <h2>Contactez-nous</h2>
         </div>
-        <p>Recevez nos conseils beauté et nos offres exclusives directement dans votre boîte mail.</p>
-        <form>
-            <input type="email" class="form-control w-50 mx-auto" placeholder="Votre email">
-            <button class="btn btn-primary mt-2">S'abonner</button>
-        </form>
+        <p class="cx-lede">
+            Une question sur votre commande, un produit ou notre boutique ?
+        </p>
+        <a class="btn btn-primary btn-lg" asp-controller="Home" asp-action="Contact">
+            Nous écrire
+        </a>
     </section>
 
-    <!-- 8. Contact -->
-    <div class="contact" style="padding: 50px 20px; background-color: #ffffff; text-align: center;">
-        <div class="container-fluid">
-            <h1>Contactez-nous</h1>
-            <p style="margin-bottom: 20px;">Besoin de nous contacter ? Remplissez le formulaire ci-dessous et nous vous répondrons dès que possible !</p>
-            <form action="https://formspree.io/f/mzzpgogp" method="POST" enctype="multipart/form-data" style="max-width: 600px; margin: 0 auto;">
-                <div style="margin-bottom: 20px;">
-                    <label for="name" style="display: block; font-weight: bold; margin-bottom: 5px;">Nom complet</label>
-                    <input type="text" id="name" name="name" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label for="email" style="display: block; font-weight: bold; margin-bottom: 5px;">Adresse e-mail</label>
-                    <input type="email" id="email" name="email" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label for="subject" style="display: block; font-weight: bold; margin-bottom: 5px;">Objet</label>
-                    <input type="text" id="subject" name="subject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required />
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label for="message" style="display: block; font-weight: bold; margin-bottom: 5px;">Votre message</label>
-                    <textarea id="message" name="message" rows="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary mt-2" style="border-radius: 5px; cursor: pointer;">Envoyer</button>
-            </form>
-        </div>
-    </div>
     <!-- 9. Réseaux Sociaux -->
     <section class="animate-section container text-center social-section">
         <div class="section-heading">
             <h2>Rejoignez-nous sur nos réseaux sociaux</h2>
             <p>Suivez-nous pour rester informé de nos dernières actualités et offres.</p>
         </div>
-        <a href="https://www.facebook.com/Cosmechic" target="_blank" style="text-decoration: none; color: #0d6efd; font-size: 1.5em;">
+        <a href="https://www.facebook.com/Cosmechic" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #0d6efd; font-size: 1.5em;">
             <i class="fab fa-facebook" style="margin-right: 10px;"></i>Facebook
         </a>
-        <a href="https://www.instagram.com/Cosmechic" target="_blank" style="text-decoration: none; color: #B14646; font-size: 1.5em;">
+        <a href="https://www.instagram.com/Cosmechic" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #B14646; font-size: 1.5em;">
             <i class="fab fa-instagram" style="margin-right: 10px;"></i>Instagram
         </a>
-        <a href="https://www.whatsapp.com/Cosmechic" target="_blank" style="text-decoration: none; color: #07af15; font-size: 1.5em;">
+        <a href="https://www.whatsapp.com/Cosmechic" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #07af15; font-size: 1.5em;">
             <i class="fab fa-whatsapp" style="margin-right: 10px;"></i>WhatsApp
         </a>
     </section>

@@ -21,6 +21,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css?family=Merriweather+Sans:400,700" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true" />
+    <!-- COSMECHIC-UX-001 : design system additif, chargé après styles.css pour
+         affiner (jamais remplacer) les composants Bootstrap déjà en usage. -->
+    <link rel="stylesheet" href="~/css/design-system.css" asp-append-version="true" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="~/assets/favicon.ico" />
@@ -52,6 +55,37 @@
 
         .navbar-nav a:hover {
             color: white;
+        }
+
+        /* COSMECHIC-UX-001 (section 7) : le header d'origine déclarait
+           navbar-expand-lg / id="navbarSupportedContent" sans jamais poser le
+           bouton bascule (.navbar-toggler) ni la classe .collapse sur le
+           conteneur — en dessous de 992px, le menu (Accueil/À propos/
+           Catégories/Nous joindre), la recherche et le compte/panier
+           restaient tous visibles en permanence dans un header fixe étroit :
+           navigation mobile inutilisable et risque de débordement horizontal.
+           Le panneau ci-dessous ajoute le comportement Bootstrap standard
+           (bouton + .collapse), positionné en dropdown sous le header fixe. */
+        @@media (max-width: 991.98px) {
+            header {
+                flex-wrap: wrap;
+            }
+
+            .navbar-collapse {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background-color: darkorange;
+                padding: 15px 20px;
+                max-height: calc(100vh - 90px);
+                overflow-y: auto;
+                box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+            }
+
+            .navbar-collapse .navbar-nav {
+                margin-bottom: 15px;
+            }
         }
 
         .footer {
@@ -87,15 +121,23 @@
 </head>
 
 <body>
+    <a href="#main-content" class="cx-skip-link">Aller au contenu principal</a>
     <header>
         <!-- Logo -->
         <a class="text-white" asp-controller="Home" asp-action="Index">
             <img src="~/assets/img/Logo.png" alt="Cosmechic Logo" style="height: 90px;">
         </a>
 
-        <!-- Menu de navigation -->
-        <nav class="navbar navbar-expand-lg">
-            <div class="container d-flex align-items-center gap-3" id="navbarSupportedContent" style="font-weight: bold">
+        <!-- Bouton bascule menu mobile (voir style navbar-collapse ci-dessus) -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Ouvrir le menu de navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Menu de navigation + recherche + compte/panier : un seul panneau repliable
+             en dessous de 992px, regroupant tout ce qui était auparavant toujours visible. -->
+        <div class="collapse navbar-collapse flex-grow-1" id="navbarSupportedContent">
+            <nav class="navbar navbar-expand-lg p-0" aria-label="Navigation principale">
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link active text-dark" asp-controller="Home" asp-action="Index">Accueil</a>
@@ -132,23 +174,26 @@
                     <li class="nav-item">
                         <a class="nav-link text-dark" asp-controller="Home" asp-action="Contact">Nous joindre</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" asp-controller="Home" asp-action="Faq">FAQ</a>
+                    </li>
                 </ul>
-            </div>
-        </nav>
+            </nav>
 
-        <!-- 🔥 Section Connexion et Panier -->
-        <div class="navbar navbar-expand-lg gap-5">
-            <div class="d-flex flex-row align-items-end text-end">
-                <form method="get" asp-controller="Produits" asp-action="Rechercher" class="d-flex" style="margin-right: 30px;" role="search">
-                    <input type="text" name="Q" class="form-control form-control-sm" placeholder="Rechercher un produit..." aria-label="Rechercher un produit" />
+            <!-- 🔥 Section Connexion et Panier -->
+            <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-lg-4 mt-3 mt-lg-0">
+                <form method="get" asp-controller="Produits" asp-action="Rechercher" class="d-flex mb-2 mb-lg-0" role="search">
+                    <label for="cx-search-input" class="visually-hidden">Rechercher un produit</label>
+                    <input id="cx-search-input" type="text" name="Q" class="form-control form-control-sm" placeholder="Rechercher un produit..." />
                     <button type="submit" class="btn btn-outline-primary btn-sm ms-1">
-                        <i class="bi bi-search"></i>
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <span class="visually-hidden">Rechercher</span>
                     </button>
                 </form>
-                <div style="margin-right: 30px; gap: 20px;">
+                <div class="mb-2 mb-lg-0">
                     <partial name="_LoginPartial" />
                 </div>
-                <a class="nav-link text-dark" style="font-weight: bold; top: -10px;" asp-controller="Cart" asp-action="Index">
+                <a class="nav-link text-dark fw-bold" asp-controller="Cart" asp-action="Index">
                     @await Component.InvokeAsync("ShoppingCart")
                 </a>
             </div>
@@ -156,7 +201,7 @@
     </header>
 
     <!-- Le contenu principal se décale pour ne pas être masqué par l'en-tête fixe -->
-    <main role="main" class="pb-3" style="margin-top: 120px;">
+    <main id="main-content" role="main" class="pb-3" style="margin-top: 120px;">
         @RenderBody()
     </main>
 

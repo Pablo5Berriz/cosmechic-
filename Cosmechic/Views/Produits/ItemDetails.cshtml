@@ -1,14 +1,21 @@
 ﻿@model ShoppingCart
 
 @{
-    ViewData["Title"] = "Ajout produit";
+    // COSMECHIC-UX-001 : le titre était fixe ("Ajout produit") pour tous les
+    // produits — chaque page de détail avait donc le même <title>, contraire à
+    // la section 21 (titres descriptifs par page). Utilise désormais le nom réel
+    // du produit.
+    ViewData["Title"] = Model.Produit.Nom;
+    ViewData["MetaDescription"] = !string.IsNullOrWhiteSpace(Model.Produit.Description)
+        ? Model.Produit.Description.Substring(0, Math.Min(155, Model.Produit.Description.Length))
+        : null;
     var enStock = Model.Produit.Disponible && Model.Produit.Stock > 0;
 }
 
 <section class="py-5" style="margin-top: 100px;">
     <div class="text-center">
-        <h1 class="fw-folder" style=" color:darkblue">
-            @ViewData["Title"]
+        <h1 class="fw-bold" style=" color:darkblue">
+            @Model.Produit.Nom
         </h1>
     </div>
 </section>
@@ -21,10 +28,19 @@
                     <div class="card-body">
                         <div class="row justify-content-center">
                             <div class="col-md-6">
-                                <img src="@Url.Content("~/Images_Produits/" + Model.Produit.Image)" class="img-fluid rounded" alt="Image de @Model.Produit.Image">
+                                @if (!string.IsNullOrWhiteSpace(Model.Produit.Image))
+                                {
+                                    <img src="@Url.Content("~/Images_Produits/" + Model.Produit.Image)" class="img-fluid rounded" alt="@Model.Produit.Nom" loading="lazy">
+                                }
+                                else
+                                {
+                                    <div class="cx-empty-state">
+                                        <i class="bi bi-image" aria-hidden="true"></i>
+                                        <p class="mb-0">Aucune image disponible</p>
+                                    </div>
+                                }
                             </div>
                             <div class="col-md-6">
-                                <h2 class="fw-bold">@Model.Produit.Nom</h2>
                                 <p>@Model.Produit.Description</p>
                                 @if (enStock)
                                 {
@@ -32,8 +48,8 @@
                                     <form method="post" class="mt-4" id="addToCartForm">
                                         <input hidden asp-for="ProduitId" />
                                         <div class="input-group mb-3">
-                                            <span class="input-group-text">Quantité</span>
-                                            <input asp-for="Count" type="number" value="1" min="1" max="@Model.Produit.Stock" class="form-control" aria-label="Quantité" aria-describedby="basic-addon2">
+                                            <label class="input-group-text" for="Count">Quantité</label>
+                                            <input asp-for="Count" type="number" value="1" min="1" max="@Model.Produit.Stock" class="form-control">
                                         </div>
                                         <button type="submit" class="btn btn-primary btn-block">Ajouter au panier</button>
                                     </form>
@@ -53,10 +69,4 @@
         </div>
     </div>
 </section>
-
-<script nonce="@CspNonce.Nonce">
-    document.getElementById("addToCartForm")?.addEventListener("submit", function () {
-        window.history.back();
-    });
-</script>
 

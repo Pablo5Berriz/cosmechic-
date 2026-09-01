@@ -17,11 +17,21 @@
                         <h5 class="pt-2">Mon Panier</h5>
                     </div>
                     <div class="col-6 text-end">
-                        <a asp-controller="Categorie" asp-action="Index" class="btn btn-primary btn-sm">Continuer les achats</a>
+                        @* COSMECHIC-UX-001 : "Categorie"/"Index" ne correspondait à aucune route
+                           réelle (contrôleur inexistant) — lien mort réparé vers le catalogue public. *@
+                        <a asp-controller="Categories" asp-action="Customer" class="btn btn-primary btn-sm">Continuer les achats</a>
                     </div>
                 </div>
             </div>
             <div class="card-body">
+                @if (!Model.ShoppingCartList.Any())
+                {
+                    <div class="cx-empty-state">
+                        <i class="bi bi-cart-x" aria-hidden="true"></i>
+                        <p class="mb-3">Votre panier est vide.</p>
+                        <a asp-controller="Categories" asp-action="Customer" class="btn btn-primary">Découvrir nos produits</a>
+                    </div>
+                }
                 @foreach (var item in Model.ShoppingCartList)
                 {
                     <div class="row border-bottom py-3">
@@ -51,23 +61,26 @@
                     </div>
                 }
             </div>
-            <div class="card-footer bg-white">
-                <div class="row">
-                    <div class="col-md-6 offset-md-3">
-                        <ul class="list-group mb-3">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">Total (CAD)</span>
-                                <span class="badge bg-primary rounded-pill">@Model.OrderHeader.OrderTotal CAD</span>
-                            </li>
-                        </ul>
+            @if (Model.ShoppingCartList.Any())
+            {
+                <div class="card-footer bg-white">
+                    <div class="row">
+                        <div class="col-md-6 offset-md-3">
+                            <ul class="list-group mb-3">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold">Total (CAD)</span>
+                                    <span class="badge bg-primary rounded-pill">@Model.OrderHeader.OrderTotal CAD</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 offset-md-4">
+                            <a asp-action="Summary" class="btn btn-primary btn-lg w-100">Passer au paiement</a>
+                        </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-4 offset-md-4">
-                        <a asp-action="Summary" class="btn btn-primary btn-lg w-100">Passer au paiement</a>
-                    </div>
-                </div>
-            </div>
+            }
         </div>
     </div>
 </div>

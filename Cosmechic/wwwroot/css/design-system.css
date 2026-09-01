@@ -1,0 +1,309 @@
+/*
+ * COSMECHIC-UX-001 : design system minimal, additif uniquement.
+ *
+ * Ce fichier NE remplace PAS styles.css (bundle Bootstrap 5.2.3 / Start
+ * Bootstrap Creative déjà utilisé partout dans l'application) — il se charge
+ * après lui et affine les composants Bootstrap déjà en usage (boutons,
+ * cartes, formulaires, tables, badges, alertes) avec des tokens cohérents,
+ * plutôt que d'introduire un nouveau framework ou une feuille de style
+ * parallèle. Les couleurs de marque déjà visibles dans le dépôt sont
+ * réutilisées telles quelles (--bs-primary: #f4623a défini dans styles.css,
+ * header darkorange) — aucune identité chromatique n'est inventée.
+ */
+
+:root {
+    /* ---- Couleurs sémantiques (réutilisent les tokens Bootstrap existants) ---- */
+    --cx-color-primary: var(--bs-primary, #f4623a);
+    --cx-color-primary-dark: #c34e2e;
+    --cx-color-accent: darkorange;
+    --cx-color-surface: #ffffff;
+    --cx-color-bg: ghostwhite;
+    --cx-color-text: #212529;
+    --cx-color-text-muted: #6c757d;
+    --cx-color-border: #dee2e6;
+    --cx-color-success: var(--bs-success, #198754);
+    --cx-color-warning: var(--bs-warning, #ffc107);
+    --cx-color-danger: var(--bs-danger, #dc3545);
+    --cx-color-info: var(--bs-info, #0dcaf0);
+
+    /* ---- Typographie ---- */
+    --cx-font-body: 'Merriweather', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --cx-font-heading: 'Merriweather Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --cx-font-size-base: 1rem;
+    --cx-line-height-base: 1.6;
+    --cx-heading-weight: 700;
+
+    /* ---- Espacement (échelle 4/8px) ---- */
+    --cx-space-1: 0.25rem;
+    --cx-space-2: 0.5rem;
+    --cx-space-3: 1rem;
+    --cx-space-4: 1.5rem;
+    --cx-space-5: 2.5rem;
+    --cx-space-6: 4rem;
+
+    /* ---- Rayons / ombres ---- */
+    --cx-radius: 0.5rem;
+    --cx-radius-lg: 0.75rem;
+    --cx-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --cx-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+}
+
+/* ================= Base / typographie ================= */
+body {
+    font-family: var(--cx-font-body);
+    line-height: var(--cx-line-height-base);
+    color: var(--cx-color-text);
+}
+
+h1, h2, h3, h4, h5, h6,
+.cx-heading {
+    font-family: var(--cx-font-heading);
+}
+
+h1 {
+    font-weight: var(--cx-heading-weight);
+}
+
+.cx-page-title {
+    font-weight: var(--cx-heading-weight);
+    color: var(--cx-color-primary-dark);
+    margin-top: var(--cx-space-4);
+    margin-bottom: var(--cx-space-3);
+}
+
+.cx-lede {
+    color: var(--cx-color-text-muted);
+    font-size: 1.05rem;
+}
+
+/* ================= Focus visible (accessibilité clavier) ================= */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.form-check-input:focus-visible {
+    outline: 3px solid var(--cx-color-primary);
+    outline-offset: 2px;
+}
+
+/* Lien d'évitement — masqué visuellement mais atteignable au clavier,
+   révélé au focus (section 18/22 : navigation clavier, skip link). */
+.cx-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 2000;
+    padding: var(--cx-space-2) var(--cx-space-3);
+    background: var(--cx-color-primary);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 0 0 var(--cx-radius) 0;
+}
+
+.cx-skip-link:focus {
+    left: 0;
+}
+
+/* ================= Boutons ================= */
+.btn {
+    border-radius: var(--cx-radius);
+    font-weight: 600;
+}
+
+.btn-lg {
+    border-radius: var(--cx-radius-lg);
+}
+
+.btn:disabled,
+.btn.disabled {
+    cursor: not-allowed;
+}
+
+/* État "chargement" minimal, sans dépendance JS supplémentaire — la classe
+   est posée par un script inline existant (nonce déjà présent) au moment de
+   la soumission d'un formulaire critique (ex. checkout). */
+.btn.cx-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.btn.cx-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1rem;
+    height: 1rem;
+    margin: -0.5rem 0 0 -0.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: cx-spin 0.6s linear infinite;
+}
+
+@keyframes cx-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn.cx-loading::after {
+        animation-duration: 1.5s;
+    }
+}
+
+/* ================= Cartes ================= */
+.card {
+    border-radius: var(--cx-radius-lg);
+    box-shadow: var(--cx-shadow-sm);
+}
+
+.cx-card-hover {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.cx-card-hover:hover {
+    box-shadow: var(--cx-shadow-md);
+    transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cx-card-hover {
+        transition: none;
+    }
+
+    .cx-card-hover:hover {
+        transform: none;
+    }
+}
+
+/* ================= Formulaires ================= */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--cx-color-primary);
+    box-shadow: 0 0 0 0.2rem rgba(244, 98, 58, 0.25);
+}
+
+.cx-required::after {
+    content: " *";
+    color: var(--cx-color-danger);
+}
+
+.cx-helper-text {
+    font-size: 0.85rem;
+    color: var(--cx-color-text-muted);
+}
+
+/* ================= Feedback ================= */
+.alert {
+    border-radius: var(--cx-radius);
+}
+
+[role="alert"]:empty,
+.validation-summary-valid {
+    display: none;
+}
+
+/* ================= Badges de statut (commande / paiement / stock / retour) ================= */
+.cx-badge-stock-available { background-color: var(--cx-color-success); color: #fff; }
+.cx-badge-stock-out { background-color: var(--cx-color-text-muted); color: #fff; }
+.cx-badge-order-pending { background-color: var(--cx-color-warning); color: #212529; }
+.cx-badge-order-progress { background-color: var(--cx-color-info); color: #212529; }
+.cx-badge-order-complete { background-color: var(--cx-color-success); color: #fff; }
+.cx-badge-order-cancelled { background-color: var(--cx-color-danger); color: #fff; }
+
+/* ================= Empty states ================= */
+.cx-empty-state {
+    text-align: center;
+    padding: var(--cx-space-5) var(--cx-space-3);
+    color: var(--cx-color-text-muted);
+}
+
+.cx-empty-state i,
+.cx-empty-state .bi {
+    font-size: 2.5rem;
+    color: var(--cx-color-border);
+    display: block;
+    margin-bottom: var(--cx-space-2);
+}
+
+/* ================= Produits ================= */
+.cx-product-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.cx-product-card img {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    width: 100%;
+}
+
+.cx-product-card .card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.cx-product-card .btn {
+    margin-top: auto;
+}
+
+/* ================= Tables responsives (admin) ================= */
+.cx-table-responsive-stack {
+    width: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .cx-table-responsive-stack thead {
+        display: none;
+    }
+
+    .cx-table-responsive-stack tbody tr {
+        display: block;
+        margin-bottom: var(--cx-space-3);
+        border: 1px solid var(--cx-color-border);
+        border-radius: var(--cx-radius);
+        padding: var(--cx-space-2);
+    }
+
+    .cx-table-responsive-stack tbody td {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--cx-space-2);
+        border: none;
+        padding: var(--cx-space-1) 0;
+        text-align: right;
+    }
+
+    .cx-table-responsive-stack tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        text-align: left;
+        color: var(--cx-color-text-muted);
+    }
+}
+
+/* ================= Impression (reçu) ================= */
+@media print {
+    header,
+    footer,
+    nav,
+    .cx-no-print {
+        display: none !important;
+    }
+
+    body {
+        background: #fff !important;
+    }
+
+    main {
+        margin-top: 0 !important;
+    }
+}

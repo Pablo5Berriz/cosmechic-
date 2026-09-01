@@ -11,7 +11,8 @@
     <link href="~/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
     <link href="~/css/sb-admin-2.min.css" rel="stylesheet">
-    <link href="~/css/sb-admin-2-custom.css" rel="stylesheet">  
+    <link href="~/css/sb-admin-2-custom.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/design-system.css" asp-append-version="true" />
 </head>
 <style>
         .button {
@@ -27,6 +28,7 @@
 </style>
 
 <body id="page-top">
+    <a href="#main-content" class="cx-skip-link">Aller au contenu principal</a>
     <div id="wrapper">
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
             <a class="sidebar-brand d-flex align-items-center justify-content-center" asp-controller="Home" asp-action="Index">
@@ -51,6 +53,18 @@
             <div class="sidebar-heading">
                 Interface
             </div>
+            @* COSMECHIC-UX-001 (section 16) : Produits, Marques, Livraison et Taxes
+               existaient déjà comme surfaces admin fonctionnelles (ProduitsController,
+               BrandsController, ShippingMethodsController, TaxRatesController, toutes
+               [Authorize(Roles="Admin")]) mais n'apparaissaient nulle part dans cette
+               barre latérale — seule une saisie manuelle de l'URL permettait d'y accéder,
+               aucun chemin de découverte pour un administrateur réel. *@
+            <li class="nav-item">
+                <a class="nav-link" asp-controller="Produits" asp-action="Index">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Produits</span>
+                </a>
+            </li>
             <li class="nav-item">
                 <a class="nav-link" asp-controller="Categories" asp-action="Index">
                     <i class="fas fa-fw fa-table"></i>
@@ -58,9 +72,27 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" asp-controller="Brands" asp-action="Index">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Marques</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" asp-controller="OrderHeaders" asp-action="Index">
                     <i class="fas fa-fw fa-table"></i>
                     <span>Commandes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" asp-controller="ShippingMethods" asp-action="Index">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Livraison</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" asp-controller="TaxRates" asp-action="Index">
+                    <i class="fas fa-fw fa-table"></i>
+                    <span>Taxes</span>
                 </a>
             </li>
 
@@ -91,7 +123,12 @@
             </li>
             
             <li class="nav-item">
-                <form class="button button-deconnexion" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                @* COSMECHIC-UX-001 : ce formulaire n'avait pas method="post" — il se
+                   soumettait donc en GET par défaut, sur une page Razor dont le seul
+                   gestionnaire est OnPost (Logout.cshtml.cs). Résultat réel : cliquer sur
+                   "Déconnexion" ici ne déconnectait personne (aucun handler ne s'exécutait).
+                   Correction de méthode uniquement — aucune règle Identity modifiée. *@
+                <form class="button button-deconnexion" method="post" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
                     <button type="submit" class="button button-deconnexion">
                         <i class="icon fas fa-fw fa-chart-area"></i>
                         Déconnexion
@@ -164,31 +201,18 @@
                 </nav>
 
                 <!-- Masthead-->
-                <main role="main" class="pb-3" style="position:relative;padding-bottom:100px;">
+                <main id="main-content" role="main" class="pb-3" style="position:relative;padding-bottom:100px;">
                     <div>
                         @RenderBody()
                     </div>
                 </main>
 
                 <!-- Footer -->
-                <style>
-                    body {
-                        margin-bottom: 100px;
-                    }
-
-                    footer {
-                        position: fixed;
-                        left: 0;
-                        bottom: 0;
-                        width: 100%;
-                        background-color: #3c3c3c;
-                        text-align: center;
-                        height: 130px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                </style>
+                @* COSMECHIC-UX-001 : le footer était en position:fixed sur 130px de haut,
+                   donc en permanence superposé au bas de chaque page admin — sur toute
+                   page plus longue que l'écran (ex. Produits/Index, OrderHeaders/Index
+                   avec beaucoup de lignes), il recouvrait le contenu réel de façon
+                   permanente au lieu de simplement clore la page. Rendu au flux normal. *@
                 <footer class="container-fluid bg-dark text-white py-4">
                     <div class="row border-top border-light mx-xl-5 py-4">
                         <div class="d-flex justify-content-center">
@@ -222,45 +246,40 @@
                     <i class="fas fa-angle-up"></i>
                 </a>
 
-                <!-- Logout Modal-->
-                <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
-                     aria-hidden="true">
-                    <div class="modal-dialog" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="exampleModalLabel">Ready to Leave?</h5>
-                                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                                    <span aria-hidden="true">×</span>
-                                </button>
-                            </div>
-                            <div class="modal-body">Sélectionnez "Déconnexion" ci-dessous si vous êtes prêt à mettre fin à votre session en cours.</div>
-                            <div class="modal-footer">
-                                <button class="btn btn-secondary" type="button" data-dismiss="modal">Annuler</button>
-                                <a class="btn btn-primary" href="login.html">Déconnexion</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                @* COSMECHIC-UX-001 : le "Logout Modal" ci-dessous n'était déclenché par
+                   aucun bouton nulle part dans cette mise en page (aucun data-target
+                   pointant vers #logoutModal) — code mort, avec en prime un lien de
+                   déconnexion cassé (href="login.html", une page statique inexistante).
+                   La vraie déconnexion se fait déjà via les deux formulaires POST
+                   ci-dessus (barre latérale + menu utilisateur). Supprimé plutôt que
+                   réparé pour un élément jamais atteignable. *@
             </div>
         </div>
     </div>
 
+    @* COSMECHIC-UX-001 (section 6/20) : ces scripts utilisaient des chemins relatifs
+       sans préfixe ~/ ("vendor/...", "js/..."). Une URL relative se résout par rapport
+       au chemin de la page courante, pas à la racine du site — sur toute page admin à
+       segments multiples (ex. /OrderHeaders/Edit/5), le navigateur cherchait
+       /OrderHeaders/Edit/vendor/jquery/jquery.min.js (404), donc jQuery, Bootstrap et
+       les scripts SB Admin 2 (accordéon sidebar, bouton "scroll to top", graphiques)
+       ne se chargeaient jamais réellement en dehors de la page d'accueil admin. *@
     <!-- Bootstrap core JavaScript-->
-    <script src="vendor/jquery/jquery.min.js"></script>
-    <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/vendor/jquery/jquery.min.js"></script>
+    <script src="~/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
     <!-- Core plugin JavaScript-->
-    <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="~/vendor/jquery-easing/jquery.easing.min.js"></script>
 
     <!-- Custom scripts for all pages-->
-    <script src="js/sb-admin-2.min.js"></script>
+    <script src="~/js/sb-admin-2.min.js"></script>
 
     <!-- Page level plugins -->
-    <script src="vendor/chart.js/Chart.min.js"></script>
+    <script src="~/vendor/chart.js/Chart.min.js"></script>
 
     <!-- Page level custom scripts -->
-    <script src="js/demo/chart-area-demo.js"></script>
-    <script src="js/demo/chart-pie-demo.js"></script>
+    <script src="~/js/demo/chart-area-demo.js"></script>
+    <script src="~/js/demo/chart-pie-demo.js"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

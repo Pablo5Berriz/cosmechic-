@@ -1,25 +1,19 @@
 @model Cosmechic.Models.Produit
 
 @{
-    ViewData["Title"] = "Détails du produit";
+    // COSMECHIC-UX-001 : la page portait deux <h1> (le libellé générique "Détails
+    // du produit" et le nom réel du produit) — un seul H1 par page (section 21).
+    // Le nom du produit, contenu réellement unique de la page, devient le H1.
+    ViewData["Title"] = Model.Nom;
     if (User.IsInRole("Admin"))
     {
         Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     }
     var enStock = Model.Disponible && Model.Stock > 0;
 }
-<section class="py-5">
-    <div class="text-center">
-        <h1 class="fw-folder" style=" color:darkblue">
-            @ViewData["Title"]
-        </h1>
-    </div>
-</section>
-<hr />
-
 
 <div class="container mt-5 mb-5">
-    <h1 class="text-center">@Model.Nom</h1>
+    <h1 class="text-center fw-bold" style="color:darkblue">@Model.Nom</h1>
     @if (Model.Brand != null)
     {
         <p class="text-center text-muted">@Model.Brand.Nom</p>
