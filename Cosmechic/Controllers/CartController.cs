@@ -14,12 +14,13 @@ namespace Cosmechic.Controllers
 
 	[Authorize]
 
-	public class CartController(CosmechicsContext context, ICheckoutService checkoutService, ICancellationService cancellationService) : Controller
+	public class CartController(CosmechicsContext context, ICheckoutService checkoutService, ICancellationService cancellationService, IAddressService addressService) : Controller
 	{
 
 		private CosmechicsContext _context = context;
 		private readonly ICheckoutService _checkoutService = checkoutService;
 		private readonly ICancellationService _cancellationService = cancellationService;
+		private readonly IAddressService _addressService = addressService;
 
 		[BindProperty]
 
@@ -50,7 +51,7 @@ namespace Cosmechic.Controllers
         // méthodes de livraison actives, taux de taxe actifs pour un calcul d'aperçu côté
         // client) — jamais utilisé comme source de vérité ; SummaryPOST recalcule tout depuis
         // la base via CheckoutService, indépendamment de ce qui est affiché ici.
-        public IActionResult Summary()
+        public async Task<IActionResult> Summary()
         {
             var userId = GetCurrentUserId();
             if (userId == null)
@@ -59,6 +60,8 @@ namespace Cosmechic.Controllers
             }
 
             var applicationUser = _context.AspNetUsers.FirstOrDefault(u => u.Id == userId);
+            var savedAddresses = await _addressService.ListForUserAsync(userId);
+            var defaultAddress = savedAddresses.FirstOrDefault(a => a.IsDefaultShipping);
 
             var summaryVM = new CheckoutSummaryVM
             {
@@ -73,10 +76,19 @@ namespace Cosmechic.Controllers
                 ActiveTaxRates = _context.TaxRates
                     .Where(r => r.IsActive && r.CountryCode == RegionCodeResolver.CountryCodeCanada)
                     .ToList(),
+                SavedAddresses = savedAddresses,
                 Input = new CheckoutFormInput
                 {
-                    Name = applicationUser?.UserName,
-                    PhoneNumber = applicationUser?.PhoneNumber,
+                    // COSMECHIC-ACCOUNT-001 (section 15) : préremplissage par l'adresse de
+                    // livraison par défaut si elle existe, plutôt que Name/PhoneNumber
+                    // seuls comme avant ce lot.
+                    SelectedAddressId = defaultAddress?.Id,
+                    Name = defaultAddress?.RecipientName ?? applicationUser?.UserName,
+                    PhoneNumber = defaultAddress?.PhoneNumber ?? applicationUser?.PhoneNumber,
+                    StreetAddress = defaultAddress?.StreetAddress,
+                    City = defaultAddress?.City,
+                    State = defaultAddress?.State,
+                    PostalCode = defaultAddress?.PostalCode,
                 },
             };
 
@@ -107,14 +119,40 @@ namespace Cosmechic.Controllers
 				return Unauthorized();
 			}
 
-			var shipping = new ShippingAddress(
-				input?.Name ?? string.Empty,
-				input?.PhoneNumber ?? string.Empty,
-				input?.StreetAddress ?? string.Empty,
-				input?.City ?? string.Empty,
-				input?.State ?? string.Empty,
-				input?.PostalCode ?? string.Empty,
-				input?.ShippingMethodId ?? 0);
+			ShippingAddress shipping;
+			if (input?.SelectedAddressId is int selectedAddressId)
+			{
+				// COSMECHIC-ACCOUNT-001 (section 15/28) : ownership vérifié ici — un
+				// SelectedAddressId appartenant à un autre client échoue silencieusement
+				// vers "aucune correspondance" plutôt que de divulguer/utiliser l'adresse
+				// d'autrui (IDOR).
+				var savedAddress = await _addressService.GetOwnedAsync(selectedAddressId, userId);
+				if (savedAddress == null)
+				{
+					TempData["error"] = "Adresse sélectionnée introuvable.";
+					return RedirectToAction(nameof(Summary));
+				}
+
+				shipping = new ShippingAddress(
+					savedAddress.RecipientName,
+					savedAddress.PhoneNumber,
+					savedAddress.StreetAddress,
+					savedAddress.City,
+					savedAddress.State,
+					savedAddress.PostalCode,
+					input?.ShippingMethodId ?? 0);
+			}
+			else
+			{
+				shipping = new ShippingAddress(
+					input?.Name ?? string.Empty,
+					input?.PhoneNumber ?? string.Empty,
+					input?.StreetAddress ?? string.Empty,
+					input?.City ?? string.Empty,
+					input?.State ?? string.Empty,
+					input?.PostalCode ?? string.Empty,
+					input?.ShippingMethodId ?? 0);
+			}
 
 			var domain = Request.Scheme + "://" + Request.Host.Value + "/";
 

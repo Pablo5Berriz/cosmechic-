@@ -36,20 +36,20 @@
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="text-right">Paramètres du profil</h4>
                     </div>
+                    @* COSMECHIC-ACCOUNT-001 : Utilisateur/Email affichés en lecture seule —
+                       ce formulaire ne les accepte plus en écriture (les modifier
+                       correctement exige UserManager.SetUserNameAsync/SetEmailAsync,
+                       hors périmètre de ce CRUD scaffold administratif). *@
+                    <dl class="row mb-4">
+                        <dt class="col-sm-3">Utilisateur</dt>
+                        <dd class="col-sm-9">@Model.UserName</dd>
+                        <dt class="col-sm-3">Email</dt>
+                        <dd class="col-sm-9">@Model.Email</dd>
+                    </dl>
                     <form asp-action="Edit">
                         <div class="row mt-2">
                             <div asp-validation-summary="ModelOnly" class="text-danger col-12"></div>
                             <input type="hidden" asp-for="Id" />
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="UserName" class="control-label">Utilisateur</label>
-                                <input asp-for="UserName" class="form-control" />
-                                <span asp-validation-for="UserName" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label asp-for="Email" class="control-label">Email</label>
-                                <input asp-for="Email" class="form-control" />
-                                <span asp-validation-for="Email" class="text-danger"></span>
-                            </div>
                             <div class="col-md-6 mb-3">
                                 <label asp-for="PhoneNumber" class="control-label">Numéro Téléphone</label>
                                 <input asp-for="PhoneNumber" class="form-control" />

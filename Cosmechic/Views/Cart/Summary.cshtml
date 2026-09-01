@@ -49,6 +49,34 @@
 									<span class="text-info">Informations de livraison:</span>
 								</h4>
 							</div>
+								@* COSMECHIC-ACCOUNT-001 (section 15) : sélection d'une adresse
+								   enregistrée, ou saisie ponctuelle. Le serveur revérifie
+								   l'ownership de l'adresse choisie (SummaryPOST) — cette
+								   sélection n'est qu'un confort d'affichage. *@
+								<input type="hidden" asp-for="Input.SelectedAddressId" id="selectedAddressId" />
+								@if (Model.SavedAddresses.Any())
+								{
+									<fieldset class="mb-3">
+										<legend class="h6">Adresse de livraison</legend>
+										@foreach (var address in Model.SavedAddresses)
+										{
+											<div class="form-check saved-address-option"
+												 data-id="@address.Id" data-recipient="@address.RecipientName" data-phone="@address.PhoneNumber"
+												 data-street="@address.StreetAddress" data-city="@address.City" data-state="@address.State" data-postal="@address.PostalCode">
+												<input class="form-check-input saved-address-radio" type="radio" name="savedAddressChoice"
+													   id="savedAddress_@address.Id" value="@address.Id" @(Model.Input.SelectedAddressId == address.Id ? "checked" : "") />
+												<label class="form-check-label" for="savedAddress_@address.Id">
+													<strong>@address.Label</strong> — @address.RecipientName, @address.StreetAddress, @address.City @address.State @address.PostalCode
+												</label>
+											</div>
+										}
+										<div class="form-check saved-address-option" data-id="">
+											<input class="form-check-input saved-address-radio" type="radio" name="savedAddressChoice"
+												   id="savedAddress_new" value="" @(Model.Input.SelectedAddressId == null ? "checked" : "") />
+											<label class="form-check-label" for="savedAddress_new">Nouvelle adresse</label>
+										</div>
+									</fieldset>
+								}
 							<div class="row my-1">
 								<div class="col-3">
 									<label>Nom</label>
@@ -230,6 +258,48 @@
 			el.addEventListener('change', recompute);
 		});
 		document.getElementById('stateInput').addEventListener('input', recompute);
+
+		// COSMECHIC-ACCOUNT-001 (section 15) : sélectionner une adresse enregistrée
+		// préremplit (et verrouille) les champs de saisie ponctuelle et renseigne le
+		// champ caché SelectedAddressId ; "Nouvelle adresse" les déverrouille et vide ce
+		// champ. Confort d'affichage uniquement — SummaryPOST revérifie tout côté serveur.
+		var freeTextFields = {
+			name: document.getElementById('Input_Name'),
+			phone: document.getElementById('Input_PhoneNumber'),
+			street: document.getElementById('Input_StreetAddress'),
+			city: document.getElementById('Input_City'),
+			state: document.getElementById('stateInput'),
+			postal: document.getElementById('Input_PostalCode'),
+		};
+		var selectedAddressIdField = document.getElementById('selectedAddressId');
+
+		function applySavedAddressChoice(option) {
+			var addressId = option.getAttribute('data-id');
+			if (addressId) {
+				selectedAddressIdField.value = addressId;
+				freeTextFields.name.value = option.getAttribute('data-recipient') || '';
+				freeTextFields.phone.value = option.getAttribute('data-phone') || '';
+				freeTextFields.street.value = option.getAttribute('data-street') || '';
+				freeTextFields.city.value = option.getAttribute('data-city') || '';
+				freeTextFields.state.value = option.getAttribute('data-state') || '';
+				freeTextFields.postal.value = option.getAttribute('data-postal') || '';
+				Object.values(freeTextFields).forEach(function (el) { el.readOnly = true; });
+			} else {
+				selectedAddressIdField.value = '';
+				Object.values(freeTextFields).forEach(function (el) { el.readOnly = false; });
+			}
+			recompute();
+		}
+
+		document.querySelectorAll('.saved-address-radio').forEach(function (el) {
+			el.addEventListener('change', function () {
+				applySavedAddressChoice(el.closest('.saved-address-option'));
+			});
+		});
+		var initiallyChecked = document.querySelector('.saved-address-radio:checked');
+		if (initiallyChecked) {
+			applySavedAddressChoice(initiallyChecked.closest('.saved-address-option'));
+		}
 
 		recompute();
 	})();

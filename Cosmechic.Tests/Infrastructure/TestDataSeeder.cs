@@ -1,4 +1,5 @@
 using Cosmechic.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace Cosmechic.Tests.Infrastructure
 {
@@ -142,6 +143,40 @@ namespace Cosmechic.Tests.Infrastructure
                     Note = 5,
                     Commentaire = "Tres bon produit",
                     DateReview = DateTime.UtcNow.Date,
+                });
+            });
+
+            // COSMECHIC-ACCOUNT-001 : en production, CosmechicsContext.AspNetUsers et
+            // ApplicationDbContext.Users pointent vers la même table physique
+            // (ARCH-002/DATA-001). En test, ce sont deux bases InMemory nommées
+            // différemment — tout chemin passant par UserManager<IdentityUser> (ex.
+            // AccountController.Profile) a donc besoin de ce miroir explicite pour
+            // résoudre les mêmes utilisateurs par Id.
+            factory.SeedIdentity(identityContext =>
+            {
+                identityContext.Users.Add(new IdentityUser
+                {
+                    Id = TestIdentities.CustomerAId,
+                    UserName = "customer-a",
+                    NormalizedUserName = "CUSTOMER-A",
+                    Email = "customer-a@example.test",
+                    NormalizedEmail = "CUSTOMER-A@EXAMPLE.TEST",
+                });
+                identityContext.Users.Add(new IdentityUser
+                {
+                    Id = TestIdentities.CustomerBId,
+                    UserName = "customer-b",
+                    NormalizedUserName = "CUSTOMER-B",
+                    Email = "customer-b@example.test",
+                    NormalizedEmail = "CUSTOMER-B@EXAMPLE.TEST",
+                });
+                identityContext.Users.Add(new IdentityUser
+                {
+                    Id = TestIdentities.AdminId,
+                    UserName = "admin",
+                    NormalizedUserName = "ADMIN",
+                    Email = "admin@example.test",
+                    NormalizedEmail = "ADMIN@EXAMPLE.TEST",
                 });
             });
         }

@@ -1,0 +1,86 @@
+@model Cosmechic.Models.ViewModels.AddressFormInput
+
+@{
+    var isEdit = Model.Id.HasValue;
+    ViewData["Title"] = isEdit ? "Modifier l'adresse" : "Ajouter une adresse";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">@ViewData["Title"]</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="@(isEdit ? "EditAddress" : "CreateAddress")" asp-route-id="@Model.Id" method="post" novalidate>
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                        <fieldset>
+                            <legend class="visually-hidden">Détails de l'adresse</legend>
+                            <div class="row g-3">
+                                <div class="col-12 col-sm-6">
+                                    <label asp-for="Label" class="form-label">Nom de l'adresse (ex. Maison, Travail)</label>
+                                    <input asp-for="Label" class="form-control" required maxlength="100" />
+                                    <span asp-validation-for="Label" class="text-danger"></span>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label asp-for="RecipientName" class="form-label">Nom du destinataire</label>
+                                    <input asp-for="RecipientName" class="form-control" required maxlength="200" />
+                                    <span asp-validation-for="RecipientName" class="text-danger"></span>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label asp-for="PhoneNumber" class="form-label">Téléphone</label>
+                                    <input asp-for="PhoneNumber" type="tel" class="form-control" required maxlength="30" autocomplete="tel" />
+                                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label asp-for="CountryCode" class="form-label">Pays</label>
+                                    <select asp-for="CountryCode" class="form-select">
+                                        <option value="CA">Canada (CA)</option>
+                                    </select>
+                                    <div class="form-text">Seule la livraison au Canada est actuellement prise en charge.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label asp-for="StreetAddress" class="form-label">Adresse</label>
+                                    <input asp-for="StreetAddress" class="form-control" required maxlength="300" autocomplete="street-address" />
+                                    <span asp-validation-for="StreetAddress" class="text-danger"></span>
+                                </div>
+                                <div class="col-12 col-sm-5">
+                                    <label asp-for="City" class="form-label">Ville</label>
+                                    <input asp-for="City" class="form-control" required maxlength="100" autocomplete="address-level2" />
+                                    <span asp-validation-for="City" class="text-danger"></span>
+                                </div>
+                                <div class="col-6 col-sm-4">
+                                    <label asp-for="State" class="form-label">Province</label>
+                                    <input asp-for="State" class="form-control" required maxlength="100" placeholder="ex. QC" autocomplete="address-level1" />
+                                    <span asp-validation-for="State" class="text-danger"></span>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <label asp-for="PostalCode" class="form-label">Code postal</label>
+                                    <input asp-for="PostalCode" class="form-control" required maxlength="20" placeholder="ex. H2X 1Y6" autocomplete="postal-code" />
+                                    <span asp-validation-for="PostalCode" class="text-danger"></span>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input asp-for="SetAsDefault" class="form-check-input" />
+                                        <label asp-for="SetAsDefault" class="form-check-label">Utiliser comme adresse de livraison par défaut</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                        <div class="mt-4 d-flex gap-2">
+                            <a class="btn btn-secondary" asp-action="Addresses">Annuler</a>
+                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

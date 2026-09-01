@@ -125,6 +125,41 @@ namespace Cosmechic.Tests
             Assert.Equal(SD.OrderStatusPending, reloaded.OrderStatus);
         }
 
+        // COSMECHIC-ACCOUNT-001 (section 20/44) : CanCancel exposé en lecture seule,
+        // utilisé par les vues (OrderHeaders/Details, Account/OrderDetails) au lieu de
+        // dupliquer la règle.
+        [Fact]
+        public void CanCancel_PendingUnpaidOrder_IsEligible()
+        {
+            var order = SeedOrder(SD.OrderStatusPending, SD.PaymentStatusPending, SD.FulfillmentStatusUnfulfilled, paymentIntentId: null);
+
+            Assert.IsType<CancellationEligible>(_sut.CanCancel(order));
+        }
+
+        [Fact]
+        public void CanCancel_AlreadyCancelled_IsIneligible()
+        {
+            var order = SeedOrder(SD.OrderStatusCancelled, SD.PaymentStatusPending, SD.FulfillmentStatusUnfulfilled, paymentIntentId: null);
+
+            Assert.IsType<CancellationIneligible>(_sut.CanCancel(order));
+        }
+
+        [Fact]
+        public void CanCancel_ShippedOrder_IsIneligible()
+        {
+            var order = SeedOrder(SD.OrderStatusConfirmed, SD.PaymentStatusPaid, SD.FulfillmentStatusShipped);
+
+            Assert.IsType<CancellationIneligible>(_sut.CanCancel(order));
+        }
+
+        [Fact]
+        public void CanCancel_FullyRefundedOrder_IsIneligible()
+        {
+            var order = SeedOrder(SD.OrderStatusConfirmed, SD.PaymentStatusRefunded, SD.FulfillmentStatusUnfulfilled);
+
+            Assert.IsType<CancellationIneligible>(_sut.CanCancel(order));
+        }
+
         public void Dispose() => _context.Dispose();
     }
 }

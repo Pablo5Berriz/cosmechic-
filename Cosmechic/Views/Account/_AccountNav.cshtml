@@ -1,0 +1,42 @@
+@{
+    var current = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    string NavClass(string action) => current == action ? "nav-link active" : "nav-link";
+}
+@* COSMECHIC-ACCOUNT-001 (section 6/34/35) : nav "pills" Bootstrap — flex-row (scroll
+   horizontal évité par le wrap) sur mobile, flex-column sur desktop. Landmark <nav> +
+   aria-current pour le lien actif : navigable au clavier et par lecteur d'écran sans
+   attribut ARIA superflu. *@
+<nav aria-label="Navigation du compte" class="mb-4 mb-md-0">
+    <ul class="nav nav-pills flex-md-column gap-1">
+        <li class="nav-item">
+            <a class="@NavClass("Index")" asp-controller="Account" asp-action="Index" aria-current="@(current == "Index" ? "page" : null)">
+                <i class="fas fa-gauge fa-sm fa-fw me-2" aria-hidden="true"></i>Aperçu
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="@NavClass("Profile")" asp-controller="Account" asp-action="Profile" aria-current="@(current == "Profile" ? "page" : null)">
+                <i class="fas fa-user fa-sm fa-fw me-2" aria-hidden="true"></i>Profil
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="@NavClass("Addresses")" asp-controller="Account" asp-action="Addresses" aria-current="@(current == "Addresses" ? "page" : null)">
+                <i class="fas fa-location-dot fa-sm fa-fw me-2" aria-hidden="true"></i>Adresses
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="@(current is "Orders" or "OrderDetails" ? "nav-link active" : "nav-link")" asp-controller="Account" asp-action="Orders" aria-current="@(current is "Orders" or "OrderDetails" ? "page" : null)">
+                <i class="fas fa-box fa-sm fa-fw me-2" aria-hidden="true"></i>Commandes
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="@NavClass("Returns")" asp-controller="Account" asp-action="Returns" aria-current="@(current == "Returns" ? "page" : null)">
+                <i class="fas fa-rotate-left fa-sm fa-fw me-2" aria-hidden="true"></i>Retours
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" asp-area="Identity" asp-page="/Account/Manage/Index">
+                <i class="fas fa-shield-halved fa-sm fa-fw me-2" aria-hidden="true"></i>Sécurité
+            </a>
+        </li>
+    </ul>
+</nav>

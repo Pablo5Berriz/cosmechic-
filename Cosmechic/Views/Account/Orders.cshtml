@@ -1,0 +1,72 @@
+@model Cosmechic.Models.ViewModels.PagedOrdersVM
+
+@{
+    ViewData["Title"] = "Mes commandes";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Mes commandes</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            @if (!Model.Orders.Any())
+            {
+                <p class="text-muted">Vous n'avez encore passé aucune commande.</p>
+                <a class="btn btn-primary" asp-controller="Produits" asp-action="Index">Voir les produits</a>
+            }
+            else
+            {
+                @* COSMECHIC-ACCOUNT-001 (section 16/35) : cartes empilées plutôt qu'un
+                   tableau — jamais de défilement horizontal illisible sur mobile. *@
+                <div class="list-group mb-4">
+                    @foreach (var order in Model.Orders)
+                    {
+                        <a class="list-group-item list-group-item-action" asp-action="OrderDetails" asp-route-id="@order.Id">
+                            <div class="d-flex w-100 justify-content-between flex-wrap gap-2">
+                                <h2 class="h6 mb-1">Commande #@order.Id</h2>
+                                <strong>@order.OrderTotal.ToString("0.00") CAD</strong>
+                            </div>
+                            <p class="mb-1 text-muted small">@order.OrderDate.ToString("d MMMM yyyy")</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span class="badge bg-secondary">@order.OrderStatus</span>
+                                <span class="badge bg-info text-dark">@order.PaymentStatus</span>
+                                @if (!string.IsNullOrEmpty(order.FulfillmentStatus))
+                                {
+                                    <span class="badge bg-light text-dark border">@order.FulfillmentStatus</span>
+                                }
+                            </div>
+                        </a>
+                    }
+                </div>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <nav aria-label="Pagination des commandes">
+                        <ul class="pagination flex-wrap">
+                            @for (var p = 1; p <= Model.TotalPages; p++)
+                            {
+                                <li class="page-item @(p == Model.Page ? "active" : "")">
+                                    @if (p == Model.Page)
+                                    {
+                                        <span class="page-link" aria-current="page">@p</span>
+                                    }
+                                    else
+                                    {
+                                        <a class="page-link" asp-action="Orders" asp-route-page="@p">@p</a>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            }
+        </div>
+    </div>
+</div>

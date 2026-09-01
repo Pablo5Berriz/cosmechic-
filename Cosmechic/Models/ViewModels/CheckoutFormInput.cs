@@ -10,6 +10,14 @@ namespace Cosmechic.Models.ViewModels
     // fragile à l'ajout futur d'un champ sensible sur OrderHeader).
     public class CheckoutFormInput
     {
+        // COSMECHIC-ACCOUNT-001 (section 15) : si renseigné, le serveur recopie le
+        // snapshot depuis la CustomerAddress possédée par le client (jamais les champs
+        // libres ci-dessous, ignorés dans ce cas) — sinon, adresse ponctuelle saisie
+        // directement. Dans les deux cas, OrderHeader ne reçoit qu'un snapshot plat,
+        // jamais une FK : modifier l'adresse enregistrée après coup ne change jamais une
+        // commande déjà passée (section 42).
+        public int? SelectedAddressId { get; set; }
+
         public string? Name { get; set; }
         public string? PhoneNumber { get; set; }
         public string? StreetAddress { get; set; }

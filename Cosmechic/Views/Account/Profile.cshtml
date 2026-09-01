@@ -1,0 +1,70 @@
+@model Cosmechic.Models.ViewModels.ProfileVM
+
+@{
+    ViewData["Title"] = "Profil";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Profil</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            @if (TempData["success"] is string success)
+            {
+                <div class="alert alert-success" role="status">@success</div>
+            }
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Identifiants</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Utilisateur</dt>
+                        <dd class="col-sm-9">@Model.Username</dd>
+                        <dt class="col-sm-3">Email</dt>
+                        <dd class="col-sm-9">
+                            @Model.Email
+                            @if (Model.EmailConfirmed)
+                            {
+                                <span class="badge bg-success ms-2">Confirmé</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark ms-2">Non confirmé</span>
+                            }
+                        </dd>
+                    </dl>
+                    <p class="text-muted small mt-3 mb-0">
+                        Pour changer votre adresse courriel ou votre mot de passe, utilisez les pages
+                        <a asp-area="Identity" asp-page="/Account/Manage/Email">Email</a> et
+                        <a asp-area="Identity" asp-page="/Account/Manage/ChangePassword">Mot de passe</a> de la section Sécurité.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Coordonnées</h2>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Profile" method="post" novalidate>
+                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                        <div class="mb-3">
+                            <label for="phoneNumber" class="form-label">Numéro de téléphone</label>
+                            <input type="tel" id="phoneNumber" name="PhoneNumber" class="form-control" value="@Model.PhoneNumber" autocomplete="tel" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

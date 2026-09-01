@@ -11,5 +11,9 @@ namespace Cosmechic.Models.ViewModels
         public List<ShippingMethod> ShippingMethods { get; set; } = new();
         public List<TaxRate> ActiveTaxRates { get; set; } = new();
         public CheckoutFormInput Input { get; set; } = new();
+
+        // COSMECHIC-ACCOUNT-001 (section 15) : adresses enregistrées du client, pour lui
+        // permettre d'en sélectionner une plutôt que de ressaisir une adresse ponctuelle.
+        public IReadOnlyList<CustomerAddress> SavedAddresses { get; set; } = Array.Empty<CustomerAddress>();
     }
 }

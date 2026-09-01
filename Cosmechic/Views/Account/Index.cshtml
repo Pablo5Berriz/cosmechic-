@@ -1,0 +1,98 @@
+@model Cosmechic.Models.ViewModels.AccountDashboardVM
+@using Cosmechic.Utility
+
+@{
+    ViewData["Title"] = "Mon compte";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Bonjour, @Model.Username</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h6 text-muted mb-1">Email</h2>
+                            <p class="mb-1">@Model.Email</p>
+                            @if (Model.EmailConfirmed)
+                            {
+                                <span class="badge bg-success">Confirmé</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Non confirmé</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h6 text-muted mb-1">Commandes en cours</h2>
+                            <p class="h3 mb-0">@Model.OrdersInProgressCount</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Adresse de livraison par défaut</h2>
+                    <a class="btn btn-sm btn-outline-primary" asp-action="Addresses">Gérer (@Model.AddressCount)</a>
+                </div>
+                <div class="card-body">
+                    @if (Model.DefaultAddress == null)
+                    {
+                        <p class="text-muted mb-0">Aucune adresse enregistrée. <a asp-action="CreateAddress">Ajouter une adresse</a>.</p>
+                    }
+                    else
+                    {
+                        <p class="mb-0">
+                            <strong>@Model.DefaultAddress.Label</strong><br />
+                            @Model.DefaultAddress.RecipientName, @Model.DefaultAddress.StreetAddress,
+                            @Model.DefaultAddress.City @Model.DefaultAddress.State @Model.DefaultAddress.PostalCode
+                        </p>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Commandes récentes</h2>
+                    <a class="btn btn-sm btn-outline-primary" asp-action="Orders">Voir tout</a>
+                </div>
+                <div class="card-body">
+                    @if (!Model.RecentOrders.Any())
+                    {
+                        <p class="text-muted mb-0">Aucune commande pour le moment.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var order in Model.RecentOrders)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <a asp-action="OrderDetails" asp-route-id="@order.Id">Commande #@order.Id</a>
+                                        <div class="text-muted small">@order.OrderDate.ToString("d")</div>
+                                    </div>
+                                    <span class="badge bg-secondary">@order.OrderStatus</span>
+                                    <strong>@order.OrderTotal.ToString("0.00") CAD</strong>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

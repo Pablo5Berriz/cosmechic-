@@ -1,0 +1,90 @@
+@model IReadOnlyList<Cosmechic.Models.CustomerAddress>
+
+@{
+    ViewData["Title"] = "Adresses";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Adresses</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            @if (TempData["success"] is string success)
+            {
+                <div class="alert alert-success" role="status">@success</div>
+            }
+            @if (TempData["error"] is string error)
+            {
+                <div class="alert alert-danger" role="alert">@error</div>
+            }
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0">Mes adresses (@Model.Count)</h2>
+                <a class="btn btn-primary btn-sm" asp-action="CreateAddress">Ajouter une adresse</a>
+            </div>
+
+            @if (!Model.Any())
+            {
+                <p class="text-muted">Aucune adresse enregistrée pour le moment.</p>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var address in Model)
+                    {
+                        <div class="col-12 col-lg-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h3 class="h6">@address.Label</h3>
+                                        @if (address.IsDefaultShipping)
+                                        {
+                                            <span class="badge bg-primary">Par défaut</span>
+                                        }
+                                    </div>
+                                    <p class="mb-1">@address.RecipientName</p>
+                                    <p class="mb-1">@address.StreetAddress</p>
+                                    <p class="mb-1">@address.City, @address.State @address.PostalCode</p>
+                                    <p class="mb-3 text-muted">@address.PhoneNumber</p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <a class="btn btn-sm btn-outline-secondary" asp-action="EditAddress" asp-route-id="@address.Id">Modifier</a>
+                                        @if (!address.IsDefaultShipping)
+                                        {
+                                            <form asp-action="SetDefaultAddress" method="post" class="d-inline">
+                                                <input type="hidden" name="Id" value="@address.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">Définir par défaut</button>
+                                            </form>
+                                        }
+                                        <form asp-action="DeleteAddress" method="post" class="d-inline delete-address-form">
+                                            <input type="hidden" name="Id" value="@address.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@* CSP interdit les attributs onclick inline : confirmation attachée via un script nonce
+   (même motif que Cart/CancelOrder, COSMECHIC-COMMERCE-OPERATIONS-001B). *@
+<script nonce="@CspNonce.Nonce">
+    document.querySelectorAll('.delete-address-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!confirm('Supprimer cette adresse ?')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>

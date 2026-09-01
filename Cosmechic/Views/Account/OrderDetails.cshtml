@@ -1,0 +1,169 @@
+@model Cosmechic.Models.OrderHeader
+@using Cosmechic.Services
+@inject ICancellationService CancellationService
+
+@{
+    ViewData["Title"] = $"Commande #{Model.Id}";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Commande #@Model.Id</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="badge bg-secondary">Commande : @Model.OrderStatus</span>
+                <span class="badge bg-info text-dark">Paiement : @Model.PaymentStatus</span>
+                @if (!string.IsNullOrEmpty(Model.FulfillmentStatus))
+                {
+                    <span class="badge bg-light text-dark border">Expédition : @Model.FulfillmentStatus</span>
+                }
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h6 mb-0">Articles</h2>
+                </div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var line in Model.OrderDetails)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <div>@(line.ProduitNom ?? line.Produit?.Nom)</div>
+                                <div class="text-muted small">Quantité : @line.Count &middot; Prix unitaire : @line.Price.ToString("0.00") CAD</div>
+                            </div>
+                            <strong>@((line.Price * line.Count).ToString("0.00")) CAD</strong>
+                        </li>
+                    }
+                </ul>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Sous-total</dt>
+                        <dd class="col-sm-8">@Model.Subtotal.ToString("0.00") CAD</dd>
+                        <dt class="col-sm-4">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})")</dt>
+                        <dd class="col-sm-8">@Model.ShippingAmount.ToString("0.00") CAD</dd>
+                        <dt class="col-sm-4">Taxes</dt>
+                        <dd class="col-sm-8">@Model.TaxAmount.ToString("0.00") CAD</dd>
+                        @if (Model.DiscountAmount > 0)
+                        {
+                            <dt class="col-sm-4">Rabais</dt>
+                            <dd class="col-sm-8">-@Model.DiscountAmount.ToString("0.00") CAD</dd>
+                        }
+                        <dt class="col-sm-4">Total</dt>
+                        <dd class="col-sm-8"><strong>@Model.OrderTotal.ToString("0.00") CAD</strong></dd>
+                        @if (Model.RefundedAmount > 0)
+                        {
+                            <dt class="col-sm-4">Remboursé</dt>
+                            <dd class="col-sm-8">@Model.RefundedAmount.ToString("0.00") CAD</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h6 mb-0">Adresse de livraison</h2>
+                </div>
+                <div class="card-body">
+                    <address class="mb-0">
+                        @Model.Name<br />
+                        @Model.StreetAddress<br />
+                        @Model.City, @Model.State @Model.PostalCode<br />
+                        @Model.PhoneNumber
+                    </address>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.TrackingNumber) || !string.IsNullOrEmpty(Model.Carrier))
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="h6 mb-0">Suivi de livraison</h2>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.Carrier))
+                        {
+                            <p class="mb-1">Transporteur : @Model.Carrier</p>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.TrackingNumber))
+                        {
+                            <p class="mb-0">Numéro de suivi : <span id="trackingNumber">@Model.TrackingNumber</span></p>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.ReturnRequests.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="h6 mb-0">Retours liés à cette commande</h2>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var returnRequest in Model.ReturnRequests)
+                        {
+                            <li class="list-group-item">
+                                <a asp-controller="Returns" asp-action="Details" asp-route-id="@returnRequest.Id">
+                                    Retour #@returnRequest.Id — @returnRequest.Status
+                                </a>
+                                <span class="text-muted small">(@returnRequest.CreatedAt.ToString("d"), @returnRequest.Items.Sum(i => i.Quantity) article(s))</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            @if (Model.Refunds.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="h6 mb-0">Remboursements</h2>
+                    </div>
+                    @* COSMECHIC-ACCOUNT-001 (section 24) : montant/statut/date uniquement —
+                       jamais StripeRefundId/IdempotencyKey/FailureCode ni aucune note admin. *@
+                    <ul class="list-group list-group-flush">
+                        @foreach (var refund in Model.Refunds.OrderByDescending(r => r.CreatedAt))
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span>@refund.CreatedAt.ToString("d")</span>
+                                <span class="badge bg-secondary">@refund.Status</span>
+                                <strong>@refund.Amount.ToString("0.00") CAD</strong>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-primary" asp-controller="Cart" asp-action="Receipt" asp-route-id="@Model.Id">Voir le reçu</a>
+                @if (Model.FulfillmentStatus is "Shipped" or "Delivered")
+                {
+                    <a class="btn btn-outline-warning" asp-controller="Returns" asp-action="Request" asp-route-orderId="@Model.Id">Demander un retour</a>
+                }
+                @if (CancellationService.CanCancel(Model) is CancellationEligible)
+                {
+                    <form asp-controller="Cart" asp-action="CancelOrder" method="post" class="d-inline" id="cancelOrderForm">
+                        <input type="hidden" name="orderId" value="@Model.Id" />
+                        <button type="submit" class="btn btn-outline-danger">Annuler la commande</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* CSP interdit les attributs onclick inline : confirmation attachée via un script nonce. *@
+<script nonce="@CspNonce.Nonce">
+    document.getElementById('cancelOrderForm')?.addEventListener('submit', function (e) {
+        if (!confirm('Annuler cette commande ?')) {
+            e.preventDefault();
+        }
+    });
+</script>

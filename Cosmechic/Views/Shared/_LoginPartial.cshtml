@@ -12,15 +12,22 @@
             </a>
 
             <div class="dropdown-menu dropdown-menu-end shadow animated--grow-in" aria-labelledby="userDropdown">
-                <a class="dropdown-item" asp-controller="AspNetUsers" asp-action="Index">
-                    <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                    Profil
-                </a>
                 @if (!User.IsInRole("Admin"))
                 {
-                    <a class="dropdown-item" asp-controller="OrderHeaders" asp-action="Index">
+                    <a class="dropdown-item" asp-controller="Account" asp-action="Index">
                         <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                        Commande
+                        Mon compte
+                    </a>
+                    <a class="dropdown-item" asp-controller="Account" asp-action="Orders">
+                        <i class="fas fa-box fa-sm fa-fw mr-2 text-gray-400"></i>
+                        Mes commandes
+                    </a>
+                }
+                else
+                {
+                    <a class="dropdown-item" asp-controller="AspNetUsers" asp-action="Index">
+                        <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+                        Profil
                     </a>
                 }
                 @if (User.IsInRole("Admin"))

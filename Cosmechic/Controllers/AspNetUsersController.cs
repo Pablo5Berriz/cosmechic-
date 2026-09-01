@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Cosmechic.Models;
+using Cosmechic.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
@@ -21,22 +22,18 @@ namespace Cosmechic.Controllers
         }
 
         // GET: AspNetUsers
+        // COSMECHIC-ACCOUNT-001 (section 7/37) : CRUD scaffold administratif — la
+        // consultation/édition du propre profil passe désormais par AccountController
+        // (DTO étroit, jamais l'entité Identity complète). Réservé à Admin.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Index()
         {
-            if (!User.IsInRole("Admin"))
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var currentUser = await _context.AspNetUsers.FindAsync(userId);
-
-                return View(new List<AspNetUser> { currentUser });
-            }
-
             var users = await _context.AspNetUsers.ToListAsync();
             return View(users);
         }
 
         // GET: AspNetUsers/Details/5
-        // Un client ne peut consulter que son propre profil ; Admin peut tout consulter.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Details(string id)
         {
             if (id == null || _context.AspNetUsers == null)
@@ -87,15 +84,12 @@ namespace Cosmechic.Controllers
         }
 
         // GET: AspNetUsers/Edit/5
+        // COSMECHIC-ACCOUNT-001 (section 7/37) : CRUD scaffold administratif — un client
+        // modifie désormais son propre profil via AccountController.Profile (DTO étroit,
+        // UserManager). Réservé à Admin.
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(string id)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (!User.IsInRole("Admin") && currentUser.Id != id)
-            {
-                return Forbid();
-            }
-
             if (id == null || _context.AspNetUsers == null)
             {
                 return NotFound();
@@ -110,34 +104,49 @@ namespace Cosmechic.Controllers
         }
 
         // POST: AspNetUsers/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // COSMECHIC-ACCOUNT-001 (section 7/26) : lié à AspNetUserEditInput, un DTO étroit
+        // — jamais l'entité AspNetUser elle-même. L'ancien [Bind] narrowé restait posé sur
+        // l'entité complète et le handler appelait _context.Update(aspNetUser) sur cette
+        // entité liée : les propriétés Identity sensibles hors du [Bind]
+        // (PasswordHash/SecurityStamp/ConcurrencyStamp/NormalizedUserName/
+        // NormalizedEmail/EmailConfirmed/PhoneNumberConfirmed/TwoFactorEnabled/
+        // LockoutEnd/LockoutEnabled/AccessFailedCount) auraient été silencieusement
+        // écrasées par leur valeur CLR par défaut (null/false/0) et persistées comme
+        // "Modified" — cassant l'authentification du compte édité (mot de passe, recherche
+        // par valeur normalisée). On charge donc l'entité existante et n'y reporte que les
+        // champs explicitement autorisés (même correctif que OrderHeadersController.Edit,
+        // COSMECHIC-COMMERCE-OPERATIONS-001B-CLOSURE-1).
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("Id,UserName,Email, PhoneNumber, StreetAddress,City,State,PostalCode")] AspNetUser aspNetUser)
+        public async Task<IActionResult> Edit(string id, AspNetUserEditInput posted)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (!User.IsInRole("Admin") && currentUser.Id != id)
-            {
-                return Forbid();
-            }
-
-            if (id != aspNetUser.Id)
+            if (id != posted.Id)
             {
                 return NotFound();
             }
 
             if (ModelState.IsValid)
             {
+                var aspNetUser = await _context.AspNetUsers.FindAsync(id);
+                if (aspNetUser == null)
+                {
+                    return NotFound();
+                }
+
+                aspNetUser.PhoneNumber = posted.PhoneNumber;
+                aspNetUser.StreetAddress = posted.StreetAddress;
+                aspNetUser.City = posted.City;
+                aspNetUser.State = posted.State;
+                aspNetUser.PostalCode = posted.PostalCode;
+
                 try
                 {
-                    _context.Update(aspNetUser);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!AspNetUserExists(aspNetUser.Id))
+                    if (!AspNetUserExists(id))
                     {
                         return NotFound();
                     }
@@ -148,7 +157,13 @@ namespace Cosmechic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(aspNetUser);
+
+            var reloaded = await _context.AspNetUsers.FindAsync(id);
+            if (reloaded == null)
+            {
+                return NotFound();
+            }
+            return View(reloaded);
         }
 
 

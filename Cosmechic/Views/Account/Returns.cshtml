@@ -1,0 +1,48 @@
+@model IReadOnlyList<Cosmechic.Models.ReturnRequest>
+
+@{
+    ViewData["Title"] = "Mes retours";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">Mes retours</h1>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row g-4">
+        <div class="col-12 col-md-3">
+            @await Html.PartialAsync("_AccountNav")
+        </div>
+        <div class="col-12 col-md-9">
+            @if (!Model.Any())
+            {
+                <p class="text-muted">Vous n'avez encore effectué aucune demande de retour.</p>
+            }
+            else
+            {
+                @* Section 23 : aucune AdminComment exposée — uniquement les champs client. *@
+                <div class="list-group">
+                    @foreach (var returnRequest in Model)
+                    {
+                        <a class="list-group-item list-group-item-action" asp-controller="Returns" asp-action="Details" asp-route-id="@returnRequest.Id">
+                            <div class="d-flex w-100 justify-content-between flex-wrap gap-2">
+                                <h2 class="h6 mb-1">Retour #@returnRequest.Id — Commande #@returnRequest.OrderId</h2>
+                                <span class="badge bg-secondary">@returnRequest.Status</span>
+                            </div>
+                            <p class="mb-1 text-muted small">@returnRequest.CreatedAt.ToString("d MMMM yyyy")</p>
+                            <p class="mb-1">@returnRequest.Items.Sum(i => i.Quantity) article(s)@(string.IsNullOrEmpty(returnRequest.Reason) ? "" : $" — {returnRequest.Reason}")</p>
+                            @if (returnRequest.Refunds.Any())
+                            {
+                                <p class="mb-0 text-muted small">
+                                    Remboursement : @returnRequest.Refunds.Sum(r => r.Amount).ToString("0.00") CAD
+                                </p>
+                            }
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

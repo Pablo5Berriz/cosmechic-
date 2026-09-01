@@ -1,4 +1,6 @@
 ﻿@model Cosmechic.Models.OrderHeader
+@using Cosmechic.Services
+@inject ICancellationService CancellationService
 
 @{
     ViewData["Title"] = "Details de la commande";
@@ -66,7 +68,9 @@
             {
                 <a class="btn btn-outline-warning" asp-controller="Returns" asp-action="Request" asp-route-orderId="@Model.Id">Demander un retour</a>
             }
-            @if (Model.OrderStatus != "Cancelled" && Model.FulfillmentStatus is not ("Shipped" or "Delivered") && Model.PaymentStatus != "Refunded")
+            @* COSMECHIC-ACCOUNT-001 (section 20) : éligibilité demandée au backend
+               (ICancellationService.CanCancel), jamais réimplémentée dans la vue. *@
+            @if (CancellationService.CanCancel(Model) is CancellationEligible)
             {
                 <form asp-controller="Cart" asp-action="CancelOrder" method="post" style="display:inline" id="cancelOrderForm">
                     <input type="hidden" name="orderId" value="@Model.Id" />

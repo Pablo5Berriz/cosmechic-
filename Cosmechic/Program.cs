@@ -25,6 +25,7 @@ builder.Services.AddScoped<IRefundOrchestrationService, RefundOrchestrationServi
 builder.Services.AddScoped<ICancellationService, CancellationService>();
 builder.Services.AddScoped<IReturnService, ReturnService>();
 builder.Services.AddScoped<IRestockService, RestockService>();
+builder.Services.AddScoped<IAddressService, AddressService>();
 
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 

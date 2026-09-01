@@ -62,6 +62,9 @@ public partial class CosmechicsContext : DbContext
 
     public virtual DbSet<StockMovement> StockMovements { get; set; }
 
+    // COSMECHIC-ACCOUNT-001 : adresses de livraison client, plusieurs par utilisateur.
+    public virtual DbSet<CustomerAddress> CustomerAddresses { get; set; }
+
     public virtual DbSet<TemoignagesClient> TemoignagesClients { get; set; }
 
     // Préparation COSMECHIC-DATA-001 pour l'idempotence Stripe (COSMECHIC-ECOM-CORE-001).
@@ -612,6 +615,43 @@ public partial class CosmechicsContext : DbContext
                 .HasForeignKey(d => d.ProduitId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_StockMovements_Produits");
+        });
+
+        modelBuilder.Entity<CustomerAddress>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ApplicationUserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Label).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.RecipientName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.PhoneNumber).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.StreetAddress).HasMaxLength(300).IsRequired();
+            entity.Property(e => e.City).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.State).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.PostalCode).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.CountryCode).HasMaxLength(2).IsRequired().HasDefaultValue("CA");
+
+            // Deux index distincts sur la même colonne (surnommés explicitement via la
+            // surcharge à deux arguments) : EF Core fusionnerait sinon deux
+            // HasIndex(e => e.ApplicationUserId) successifs en un seul index reconfiguré.
+            entity.HasIndex(e => e.ApplicationUserId, "IX_CustomerAddresses_ApplicationUserId");
+
+            // Invariant moteur (section 13) : au plus une adresse par défaut par
+            // utilisateur — index unique filtré, pas seulement une règle applicative
+            // (même stratégie que IX_Refunds_StripeRefundId, COSMECHIC-COMMERCE-
+            // OPERATIONS-001B).
+            entity.HasIndex(e => e.ApplicationUserId, "IX_CustomerAddresses_ApplicationUserId_DefaultShipping")
+                .IsUnique()
+                .HasFilter("[IsDefaultShipping] = 1");
+
+            // Cascade (contrairement à OrderHeader/ReturnRequest/Refund) : une adresse
+            // enregistrée n'est jamais un enregistrement commercial historique — elle
+            // n'est référencée par aucune commande (snapshot plat uniquement, section
+            // 15/42) — donc supprimer un compte peut légitimement supprimer ses adresses.
+            entity.HasOne(d => d.ApplicationUser).WithMany(p => p.CustomerAddresses)
+                .HasForeignKey(d => d.ApplicationUserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_CustomerAddresses_AspNetUsers");
         });
 
         OnModelCreatingPartial(modelBuilder);

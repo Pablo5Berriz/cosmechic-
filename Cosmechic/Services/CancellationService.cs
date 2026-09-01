@@ -24,19 +24,9 @@ namespace Cosmechic.Services
                 return new CancellationRejected("Vous ne pouvez annuler que vos propres commandes.");
             }
 
-            if (order.OrderStatus == SD.OrderStatusCancelled)
+            if (CanCancel(order) is CancellationIneligible ineligible)
             {
-                return new CancellationRejected("Cette commande est déjà annulée.");
-            }
-
-            if (order.FulfillmentStatus is SD.FulfillmentStatusShipped or SD.FulfillmentStatusDelivered)
-            {
-                return new CancellationRejected("Cette commande a déjà été expédiée et ne peut plus être annulée ici — voir le processus de retour.");
-            }
-
-            if (order.PaymentStatus == SD.PaymentStatusRefunded)
-            {
-                return new CancellationRejected("Cette commande est déjà entièrement remboursée.");
+                return new CancellationRejected(ineligible.Reason);
             }
 
             var actorType = isAdmin ? SD.ActorTypeAdmin : SD.ActorTypeCustomer;
@@ -78,6 +68,31 @@ namespace Cosmechic.Services
             }
 
             return new CancellationSucceeded(RefundTriggered: false);
+        }
+
+        // COSMECHIC-ACCOUNT-001 (section 20) : mêmes trois portes techniques que
+        // CancelOrderAsync (section 12/13/14 ci-dessus), exposées en lecture seule.
+        // L'ownership reste la responsabilité de l'appelant (comme
+        // IReturnService.CanRequestReturnAsync ne vérifie pas non plus l'ownership de
+        // OrderDetail — c'est le rôle du controller/vue appelant).
+        public CancellationEligibility CanCancel(OrderHeader order)
+        {
+            if (order.OrderStatus == SD.OrderStatusCancelled)
+            {
+                return new CancellationIneligible("Cette commande est déjà annulée.");
+            }
+
+            if (order.FulfillmentStatus is SD.FulfillmentStatusShipped or SD.FulfillmentStatusDelivered)
+            {
+                return new CancellationIneligible("Cette commande a déjà été expédiée et ne peut plus être annulée ici — voir le processus de retour.");
+            }
+
+            if (order.PaymentStatus == SD.PaymentStatusRefunded)
+            {
+                return new CancellationIneligible("Cette commande est déjà entièrement remboursée.");
+            }
+
+            return new CancellationEligible();
         }
     }
 }

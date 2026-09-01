@@ -144,6 +144,19 @@ namespace Cosmechic.Tests.Infrastructure
             context.SaveChanges();
         }
 
+        // COSMECHIC-ACCOUNT-001 : pendant symétrique de Seed pour ApplicationDbContext —
+        // nécessaire dès qu'un test HTTP exerce un chemin passant par
+        // UserManager<IdentityUser> (ex. AccountController.Profile), qui interroge
+        // exclusivement ApplicationDbContext.Users et jamais CosmechicsContext.AspNetUsers
+        // (bases InMemory nommées différemment en test, voir QueryIdentity ci-dessous).
+        public void SeedIdentity(Action<ApplicationDbContext> seed)
+        {
+            using var scope = Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            seed(context);
+            context.SaveChanges();
+        }
+
         public T Query<T>(Func<CosmechicsContext, T> query)
         {
             using var scope = Services.CreateScope();
