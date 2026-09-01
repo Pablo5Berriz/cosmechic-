@@ -92,7 +92,8 @@ namespace Cosmechic.Tests
                 OrderDate = DateTime.UtcNow,
                 OrderTotal = prix * count,
                 Subtotal = prix * count,
-                OrderStatus = SD.StatusPending,
+                OrderStatus = SD.OrderStatusPending,
+                FulfillmentStatus = SD.FulfillmentStatusUnfulfilled,
                 PaymentStatus = SD.PaymentStatusPending,
                 SessionId = sessionId,
                 Name = "Test",
@@ -133,8 +134,8 @@ namespace Cosmechic.Tests
 
             using var contextA = _fixture.CreateBusinessContext();
             using var contextB = _fixture.CreateBusinessContext();
-            var serviceA = new StripeFulfillmentService(contextA, NullLogger<StripeFulfillmentService>.Instance);
-            var serviceB = new StripeFulfillmentService(contextB, NullLogger<StripeFulfillmentService>.Instance);
+            var serviceA = new StripeFulfillmentService(contextA, new OrderLifecycleService(contextA), NullLogger<StripeFulfillmentService>.Instance);
+            var serviceB = new StripeFulfillmentService(contextB, new OrderLifecycleService(contextB), NullLogger<StripeFulfillmentService>.Instance);
 
             var sessionA = PaidSession("cs_test_a", orderAId, 2500);
             var sessionB = PaidSession("cs_test_b", orderBId, 2500);
@@ -165,8 +166,8 @@ namespace Cosmechic.Tests
 
             using var contextA = _fixture.CreateBusinessContext();
             using var contextB = _fixture.CreateBusinessContext();
-            var serviceA = new StripeFulfillmentService(contextA, NullLogger<StripeFulfillmentService>.Instance);
-            var serviceB = new StripeFulfillmentService(contextB, NullLogger<StripeFulfillmentService>.Instance);
+            var serviceA = new StripeFulfillmentService(contextA, new OrderLifecycleService(contextA), NullLogger<StripeFulfillmentService>.Instance);
+            var serviceB = new StripeFulfillmentService(contextB, new OrderLifecycleService(contextB), NullLogger<StripeFulfillmentService>.Instance);
 
             var session = PaidSession("cs_test_dup", orderId, 2500);
             var sameEventId = "evt_duplicate_concurrent";
@@ -205,7 +206,8 @@ namespace Cosmechic.Tests
                 OrderDate = DateTime.UtcNow,
                 OrderTotal = 25.00m,
                 Subtotal = 25.00m,
-                OrderStatus = SD.StatusPending,
+                OrderStatus = SD.OrderStatusPending,
+                FulfillmentStatus = SD.FulfillmentStatusUnfulfilled,
                 PaymentStatus = SD.PaymentStatusPending,
                 SessionId = "cs_test_multiline",
                 Name = "Test",
@@ -220,7 +222,7 @@ namespace Cosmechic.Tests
             context.OrderHeaders.Add(order);
             await context.SaveChangesAsync();
 
-            var service = new StripeFulfillmentService(context, NullLogger<StripeFulfillmentService>.Instance);
+            var service = new StripeFulfillmentService(context, new OrderLifecycleService(context), NullLogger<StripeFulfillmentService>.Instance);
             var session = PaidSession("cs_test_multiline", order.Id, 2500);
 
             var result = await service.ProcessCheckoutSessionEventAsync("evt_multiline", "checkout.session.completed", session);

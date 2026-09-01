@@ -15,10 +15,16 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
+builder.Services.AddScoped<IStripeRefundService, StripeRefundService>();
 builder.Services.AddScoped<IShippingCalculator, ShippingCalculator>();
 builder.Services.AddScoped<ITaxCalculator, TaxCalculator>();
+builder.Services.AddScoped<IOrderLifecycleService, OrderLifecycleService>();
 builder.Services.AddScoped<ICheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IStripeFulfillmentService, StripeFulfillmentService>();
+builder.Services.AddScoped<IRefundOrchestrationService, RefundOrchestrationService>();
+builder.Services.AddScoped<ICancellationService, CancellationService>();
+builder.Services.AddScoped<IReturnService, ReturnService>();
+builder.Services.AddScoped<IRestockService, RestockService>();
 
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 

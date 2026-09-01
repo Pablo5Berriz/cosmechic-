@@ -53,7 +53,8 @@ namespace Cosmechic.Tests
                     OrderDate = DateTime.UtcNow,
                     OrderTotal = prix * count,
                     Subtotal = prix * count,
-                    OrderStatus = SD.StatusPending,
+                    OrderStatus = SD.OrderStatusPending,
+                    FulfillmentStatus = SD.FulfillmentStatusUnfulfilled,
                     PaymentStatus = SD.PaymentStatusPending,
                     SessionId = sessionId,
                     Name = "Test",
@@ -94,8 +95,8 @@ namespace Cosmechic.Tests
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var order = _factory.Query(ctx => ctx.OrderHeaders.First(o => o.Id == orderId));
-            Assert.Equal(SD.PaymentStatusApproved, order.PaymentStatus);
-            Assert.Equal(SD.StatusInProcess, order.OrderStatus);
+            Assert.Equal(SD.PaymentStatusPaid, order.PaymentStatus);
+            Assert.Equal(SD.OrderStatusConfirmed, order.OrderStatus);
             var stock = _factory.Query(ctx => ctx.Produits.First(p => p.ProduitId == produitId).Stock);
             Assert.Equal(8, stock);
         }
@@ -214,7 +215,7 @@ namespace Cosmechic.Tests
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var order = _factory.Query(ctx => ctx.OrderHeaders.First(o => o.Id == orderId));
-            Assert.Equal(SD.PaymentStatusRejected, order.PaymentStatus);
+            Assert.Equal(SD.PaymentStatusFailed, order.PaymentStatus);
             var stock = _factory.Query(ctx => ctx.Produits.First(p => p.ProduitId == produitId).Stock);
             Assert.Equal(10, stock);
         }

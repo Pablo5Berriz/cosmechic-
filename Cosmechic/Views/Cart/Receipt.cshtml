@@ -1,0 +1,90 @@
+@using Cosmechic.Models
+@model OrderHeader
+
+@{
+    ViewData["Title"] = $"Reçu — commande #{Model.Id}";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #222; max-width: 800px; margin: 40px auto; }
+        h1 { font-size: 1.4rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+        .totals td { border: none; padding: 2px 8px; }
+        .totals .label { text-align: right; }
+        .total-row td { font-weight: bold; border-top: 2px solid #333; }
+        .no-print { margin-top: 1.5rem; }
+        @@media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <h1>Reçu de commande</h1>
+    <p>
+        <strong>Numéro de commande :</strong> @Model.Id<br />
+        <strong>Date de commande :</strong> @Model.OrderDate.ToString("yyyy-MM-dd")<br />
+        <strong>Statut du paiement :</strong> @Model.PaymentStatus
+    </p>
+
+    <h3>Client et livraison</h3>
+    <p>
+        @Model.Name<br />
+        @Model.StreetAddress<br />
+        @Model.City, @Model.State @Model.PostalCode<br />
+        @Model.PhoneNumber
+    </p>
+
+    <h3>Articles</h3>
+    <table>
+        <thead>
+            <tr><th>Produit</th><th>SKU</th><th>Prix unitaire</th><th>Quantité</th><th>Total ligne</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var detail in Model.OrderDetails)
+            {
+                <tr>
+                    <td>@detail.ProduitNom</td>
+                    <td>@(detail.Produit?.Sku)</td>
+                    <td>@detail.Price.ToString("0.00") CAD</td>
+                    <td>@detail.Count</td>
+                    <td>@((detail.Price * detail.Count).ToString("0.00")) CAD</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <table class="totals">
+        <tr><td class="label">Sous-total</td><td>@Model.Subtotal.ToString("0.00") CAD</td></tr>
+        <tr><td class="label">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})")</td><td>@Model.ShippingAmount.ToString("0.00") CAD</td></tr>
+        <tr><td class="label">Taxes</td><td>@Model.TaxAmount.ToString("0.00") CAD</td></tr>
+        @if (Model.DiscountAmount > 0)
+        {
+            <tr><td class="label">Rabais</td><td>-@Model.DiscountAmount.ToString("0.00") CAD</td></tr>
+        }
+        <tr class="total-row"><td class="label">Total</td><td>@Model.OrderTotal.ToString("0.00") CAD</td></tr>
+        @if (Model.RefundedAmount > 0)
+        {
+            <tr><td class="label">Remboursé</td><td>-@Model.RefundedAmount.ToString("0.00") CAD</td></tr>
+        }
+    </table>
+
+    @* COSMECHIC-COMMERCE-OPERATIONS-001B (section 47) : ceci est un reçu de commande, pas
+       une facture fiscale conforme — aucune information fiscale du vendeur n'est
+       actuellement disponible dans la configuration de l'application.
+       TODO_REQUIRES_BUSINESS_CONFIGURATION si une conformité facture complète est requise. *@
+    <p><small>Ce document est un reçu de commande. Ce n'est pas une facture fiscale officielle.</small></p>
+
+    <div class="no-print">
+        <button id="printReceiptButton">Imprimer</button>
+    </div>
+    <script nonce="@CspNonce.Nonce">
+        document.getElementById('printReceiptButton').addEventListener('click', function () {
+            window.print();
+        });
+    </script>
+</body>
+</html>

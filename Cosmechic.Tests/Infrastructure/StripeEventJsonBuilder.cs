@@ -45,6 +45,47 @@ namespace Cosmechic.Tests.Infrastructure
             """;
         }
 
+        // COSMECHIC-COMMERCE-OPERATIONS-001B (section 75) : payload local pour
+        // refund.updated — jamais un appel réseau réel à Stripe.
+        public static string RefundUpdatedEvent(
+            string eventId,
+            string stripeRefundId,
+            string status,
+            long amount,
+            int? refundRecordId,
+            string currency = "cad",
+            string? failureReason = null)
+        {
+            var metadata = refundRecordId.HasValue
+                ? $$"""{ "RefundRecordId": "{{refundRecordId}}" }"""
+                : "{}";
+            var failureReasonJson = failureReason != null ? $"\"{failureReason}\"" : "null";
+
+            return $$"""
+            {
+              "id": "{{eventId}}",
+              "object": "event",
+              "api_version": "2020-08-27",
+              "created": 1700000000,
+              "livemode": false,
+              "pending_webhooks": 0,
+              "request": { "id": null, "idempotency_key": null },
+              "type": "refund.updated",
+              "data": {
+                "object": {
+                  "id": "{{stripeRefundId}}",
+                  "object": "refund",
+                  "amount": {{amount}},
+                  "currency": "{{currency}}",
+                  "status": "{{status}}",
+                  "failure_reason": {{failureReasonJson}},
+                  "metadata": {{metadata}}
+                }
+              }
+            }
+            """;
+        }
+
         public static string UnsupportedEvent(string eventId, string eventType = "customer.created")
             => $$"""
             {

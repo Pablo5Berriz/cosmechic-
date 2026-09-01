@@ -84,7 +84,7 @@ namespace Cosmechic.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,ApplicationUserId,OrderDate,ShippingDate,OrderTotal,OrderStatus,PaymentStatus,TrackingNumber,Carrier,PaymentDate,PaymentDueDate,SessionId,PaymentIntentId,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader orderHeader)
+        public async Task<IActionResult> Create([Bind("Id,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader orderHeader)
         {
             if (ModelState.IsValid)
             {
@@ -118,28 +118,49 @@ namespace Cosmechic.Controllers
         }
 
         // POST: OrderHeaders/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // COSMECHIC-COMMERCE-OPERATIONS-001B (audit section 5/8/54) : narrowé à l'adresse de
+        // livraison/nom/téléphone uniquement — OrderStatus/PaymentStatus/FulfillmentStatus/
+        // OrderTotal/SessionId/PaymentIntentId/ApplicationUserId ne sont plus jamais
+        // modifiables ici (seule IOrderLifecycleService et les actions dédiées
+        // d'OrderOperationsController peuvent faire transiter un statut ; OrderTotal et le
+        // reste du snapshot financier sont immuables après création, section 80).
+        //
+        // _context.Update(orderHeader) sur l'entité liée (contenant désormais uniquement les
+        // champs narrowés, le reste à leur valeur CLR par défaut) écraserait silencieusement
+        // OrderStatus/OrderTotal/etc. avec null/0 — on charge donc l'entité existante et on
+        // n'y reporte que les champs explicitement autorisés.
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,ApplicationUserId,OrderDate,ShippingDate,OrderTotal,OrderStatus,PaymentStatus,TrackingNumber,Carrier,PaymentDate,PaymentDueDate,SessionId,PaymentIntentId,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader orderHeader)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,PhoneNumber,StreetAddress,City,State,PostalCode,Name")] OrderHeader posted)
         {
-            if (id != orderHeader.Id)
+            if (id != posted.Id)
             {
                 return NotFound();
             }
 
             if (ModelState.IsValid)
             {
+                var orderHeader = await _context.OrderHeaders.FindAsync(id);
+                if (orderHeader == null)
+                {
+                    return NotFound();
+                }
+
+                orderHeader.Name = posted.Name;
+                orderHeader.PhoneNumber = posted.PhoneNumber;
+                orderHeader.StreetAddress = posted.StreetAddress;
+                orderHeader.City = posted.City;
+                orderHeader.State = posted.State;
+                orderHeader.PostalCode = posted.PostalCode;
+
                 try
                 {
-                    _context.Update(orderHeader);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!OrderHeaderExists(orderHeader.Id))
+                    if (!OrderHeaderExists(id))
                     {
                         return NotFound();
                     }
@@ -150,8 +171,8 @@ namespace Cosmechic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ApplicationUserId"] = new SelectList(_context.AspNetUsers, "Id", "Id", orderHeader.ApplicationUserId);
-            return View(orderHeader);
+            ViewData["ApplicationUserId"] = new SelectList(_context.AspNetUsers, "Id", "Id", posted.ApplicationUserId);
+            return View(posted);
         }
 
         // GET: OrderHeaders/Delete/5

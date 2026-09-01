@@ -25,6 +25,7 @@ namespace Cosmechic.Tests
                 _stripeCheckoutService,
                 new ShippingCalculator(_context),
                 new TaxCalculator(_context),
+                new OrderLifecycleService(_context),
                 NullLogger<OrderCheckoutService>.Instance);
         }
 
@@ -171,7 +172,7 @@ namespace Cosmechic.Tests
             Assert.Equal(order.Subtotal + order.ShippingAmount + order.TaxAmount - order.DiscountAmount, order.OrderTotal);
 
             Assert.Equal("user-a", order.ApplicationUserId);
-            Assert.Equal(Cosmechic.Utility.SD.StatusPending, order.OrderStatus);
+            Assert.Equal(Cosmechic.Utility.SD.OrderStatusPending, order.OrderStatus);
             Assert.Equal(Cosmechic.Utility.SD.PaymentStatusPending, order.PaymentStatus);
 
             var detail = Assert.Single(order.OrderDetails);

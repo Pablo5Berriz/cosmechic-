@@ -28,6 +28,7 @@ namespace Cosmechic.Tests.Infrastructure
         private readonly string _dbName = Guid.NewGuid().ToString();
 
         public FakeStripeCheckoutService StripeCheckoutService { get; } = new();
+        public FakeStripeRefundService StripeRefundService { get; } = new();
         public FakeEmailSender EmailSender { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -51,6 +52,9 @@ namespace Cosmechic.Tests.Infrastructure
 
                 services.RemoveAll<IStripeCheckoutService>();
                 services.AddSingleton<IStripeCheckoutService>(StripeCheckoutService);
+
+                services.RemoveAll<IStripeRefundService>();
+                services.AddSingleton<IStripeRefundService>(StripeRefundService);
 
                 services.RemoveAll<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender>();
                 services.AddSingleton<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender>(EmailSender);

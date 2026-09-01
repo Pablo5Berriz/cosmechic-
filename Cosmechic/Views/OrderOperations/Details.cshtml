@@ -1,0 +1,194 @@
+@model Cosmechic.Models.OrderHeader
+
+@{
+    ViewData["Title"] = $"Opérations post-achat — commande #{Model.Id}";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<h1 style="margin-top: 100px;">@ViewData["Title"]</h1>
+
+@if (TempData["error"] != null)
+{
+    <div class="alert alert-danger">@TempData["error"]</div>
+}
+@if (TempData["success"] != null)
+{
+    <div class="alert alert-success">@TempData["success"]</div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>Statuts</h4>
+        <table class="table table-sm">
+            <tr><th>OrderStatus</th><td>@Model.OrderStatus</td></tr>
+            <tr><th>PaymentStatus</th><td>@Model.PaymentStatus</td></tr>
+            <tr><th>FulfillmentStatus</th><td>@Model.FulfillmentStatus</td></tr>
+            <tr><th>Transporteur</th><td>@Model.Carrier / @Model.TrackingNumber</td></tr>
+            <tr><th>Expédiée le</th><td>@Model.ShippedAt</td></tr>
+            <tr><th>Livrée le</th><td>@Model.DeliveredAt</td></tr>
+        </table>
+
+        <h4>Snapshot financier</h4>
+        <table class="table table-sm">
+            <tr><th>Sous-total</th><td>@Model.Subtotal.ToString("0.00") CAD</td></tr>
+            <tr><th>Livraison</th><td>@Model.ShippingAmount.ToString("0.00") CAD</td></tr>
+            <tr><th>Taxes</th><td>@Model.TaxAmount.ToString("0.00") CAD</td></tr>
+            <tr><th>Rabais</th><td>@Model.DiscountAmount.ToString("0.00") CAD</td></tr>
+            <tr><th>Total</th><td><strong>@Model.OrderTotal.ToString("0.00") CAD</strong></td></tr>
+            <tr><th>Remboursé</th><td>@Model.RefundedAmount.ToString("0.00") CAD</td></tr>
+            <tr><th>Solde remboursable</th><td>@((Model.OrderTotal - Model.RefundedAmount).ToString("0.00")) CAD</td></tr>
+        </table>
+    </div>
+
+    <div class="col-md-6">
+        <h4>Actions</h4>
+
+        <form asp-action="MarkShipped" method="post" class="mb-2 border p-2">
+            <input type="hidden" name="OrderId" value="@Model.Id" />
+            <label>Numéro de suivi</label>
+            <input type="text" name="TrackingNumber" class="form-control mb-1" />
+            <label>Transporteur</label>
+            <input type="text" name="Carrier" class="form-control mb-1" />
+            <button type="submit" class="btn btn-sm btn-primary">Marquer expédiée</button>
+        </form>
+
+        <form asp-action="MarkDelivered" method="post" class="mb-2">
+            <input type="hidden" name="orderId" value="@Model.Id" />
+            <button type="submit" class="btn btn-sm btn-primary">Marquer livrée</button>
+        </form>
+
+        <form asp-action="Cancel" method="post" class="mb-2 border p-2" id="cancelOrderForm">
+            <input type="hidden" name="OrderId" value="@Model.Id" />
+            <label>Motif</label>
+            <input type="text" name="Reason" class="form-control mb-1" />
+            <button type="submit" class="btn btn-sm btn-danger">Annuler la commande</button>
+        </form>
+
+        <form asp-action="TriggerRefund" method="post" class="mb-2 border p-2">
+            <input type="hidden" name="OrderId" value="@Model.Id" />
+            <label>Montant à rembourser (CAD)</label>
+            <input type="text" name="Amount" class="form-control mb-1" placeholder="ex. @((Model.OrderTotal - Model.RefundedAmount).ToString("0.00"))" />
+            <label>Motif</label>
+            <input type="text" name="Reason" class="form-control mb-1" />
+            <button type="submit" class="btn btn-sm btn-warning">Déclencher un remboursement</button>
+        </form>
+    </div>
+</div>
+
+<h4>Demandes de retour</h4>
+<table class="table table-sm">
+    <thead>
+        <tr><th>Id</th><th>Statut</th><th>Créée le</th><th>Lignes</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var rr in Model.ReturnRequests)
+        {
+            <tr>
+                <td>@rr.Id</td>
+                <td>@rr.Status</td>
+                <td>@rr.CreatedAt</td>
+                <td>
+                    @foreach (var item in rr.Items)
+                    {
+                        <div>
+                            OrderDetail #@item.OrderDetailId — Qté @item.Quantity
+                            — Restocké: @(item.Restocked ? "Oui" : "Non")
+                            @if (!item.Restocked && rr.Status is "Received" or "Completed")
+                            {
+                                <form asp-action="CompleteRestock" method="post" style="display:inline">
+                                    <input type="hidden" name="ReturnItemId" value="@item.Id" />
+                                    <button type="submit" class="btn btn-xs btn-outline-secondary">Remettre en stock</button>
+                                </form>
+                            }
+                        </div>
+                    }
+                </td>
+                <td>
+                    @if (rr.Status == "Requested")
+                    {
+                        <form asp-action="ApproveReturn" method="post" style="display:inline">
+                            <input type="hidden" name="ReturnRequestId" value="@rr.Id" />
+                            <button type="submit" class="btn btn-xs btn-success">Approuver</button>
+                        </form>
+                        <form asp-action="RejectReturn" method="post" style="display:inline">
+                            <input type="hidden" name="ReturnRequestId" value="@rr.Id" />
+                            <button type="submit" class="btn btn-xs btn-danger">Rejeter</button>
+                        </form>
+                    }
+                    @if (rr.Status == "Approved")
+                    {
+                        <form asp-action="MarkReturnReceived" method="post" style="display:inline">
+                            <input type="hidden" name="returnRequestId" value="@rr.Id" />
+                            <button type="submit" class="btn btn-xs btn-secondary">Marquer reçu</button>
+                        </form>
+                    }
+                    @if (rr.Status == "Received")
+                    {
+                        <form asp-action="CompleteReturn" method="post" style="display:inline">
+                            <input type="hidden" name="returnRequestId" value="@rr.Id" />
+                            <button type="submit" class="btn btn-xs btn-secondary">Compléter</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>Remboursements</h4>
+<table class="table table-sm">
+    <thead>
+        <tr><th>Id</th><th>Montant</th><th>Statut</th><th>StripeRefundId</th><th>Créé le</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var refund in Model.Refunds)
+        {
+            <tr>
+                <td>@refund.Id</td>
+                <td>@refund.Amount.ToString("0.00") CAD</td>
+                <td>@refund.Status @(refund.FailureCode != null ? $"({refund.FailureCode})" : "")</td>
+                <td>@refund.StripeRefundId</td>
+                <td>@refund.CreatedAt</td>
+                <td>
+                    @if (refund.Status == "Failed")
+                    {
+                        <form asp-action="RetryRefund" method="post" style="display:inline">
+                            <input type="hidden" name="RefundId" value="@refund.Id" />
+                            <button type="submit" class="btn btn-xs btn-warning">Retenter</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>Historique des transitions</h4>
+<table class="table table-sm">
+    <thead>
+        <tr><th>Date</th><th>Événement</th><th>Avant</th><th>Après</th><th>Motif</th><th>Acteur</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var h in Model.StatusHistory.OrderByDescending(h => h.CreatedAt))
+        {
+            <tr>
+                <td>@h.CreatedAt</td>
+                <td>@h.EventType</td>
+                <td>@h.PreviousStatus</td>
+                <td>@h.NewStatus</td>
+                <td>@h.Reason</td>
+                <td>@h.ActorType @(h.ActorUserId != null ? $"({h.ActorUserId})" : "")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@* CSP interdit les attributs onclick inline (script-src sans 'unsafe-inline') : confirmation
+   attachée via un script nonce, cohérent avec le reste du site (ItemDetails.cshtml). *@
+<script nonce="@CspNonce.Nonce">
+    document.getElementById('cancelOrderForm')?.addEventListener('submit', function (e) {
+        if (!confirm('Annuler cette commande ?')) {
+            e.preventDefault();
+        }
+    });
+</script>

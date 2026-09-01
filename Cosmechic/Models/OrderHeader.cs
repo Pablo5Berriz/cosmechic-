@@ -62,9 +62,38 @@ public partial class OrderHeader
     // doit jamais changer l'affichage d'une commande historique.
     public string? ShippingMethodName { get; set; }
 
+    // COSMECHIC-COMMERCE-OPERATIONS-001B (section 2/42) : dimension distincte de
+    // OrderStatus/PaymentStatus, uniquement mutée par IOrderLifecycleService.
+    public string? FulfillmentStatus { get; set; }
+
+    // TrackingNumber/Carrier (existants, section 42) : jamais renseignés par le code
+    // avant ce lot ; désormais mis à jour par l'action admin "marquer expédiée"
+    // (OrdersLifecycleController), aux côtés de ShippedAt.
+    public DateTime? ShippedAt { get; set; }
+
+    public DateTime? DeliveredAt { get; set; }
+
+    // COSMECHIC-COMMERCE-OPERATIONS-001B (section 25/34) : total réservé/effectivement
+    // remboursé, maintenu comme un total glissant mis à jour atomiquement (avec
+    // RowVersion) par RefundOrchestrationService — jamais recalculé à la volée par simple
+    // somme applicative, pour permettre une contrainte CHECK moteur
+    // (CK_OrderHeaders_RefundedAmount_WithinTotal) et une garde de concurrence réelle.
+    public decimal RefundedAmount { get; set; }
+
+    // Jeton de concurrence optimiste (section 34/71) : protège RefundedAmount contre deux
+    // demandes de remboursement concurrentes qui, prises isolément, tiendraient chacune
+    // dans le solde remboursable mais dépasseraient ensemble OrderTotal.
+    public byte[]? RowVersion { get; set; }
+
     public virtual AspNetUser ApplicationUser { get; set; } = null!;
 
     public virtual ShippingMethod? ShippingMethod { get; set; }
 
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
+
+    public virtual ICollection<OrderStatusHistory> StatusHistory { get; set; } = new List<OrderStatusHistory>();
+
+    public virtual ICollection<ReturnRequest> ReturnRequests { get; set; } = new List<ReturnRequest>();
+
+    public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();
 }

@@ -19,15 +19,22 @@ namespace Cosmechic.Controllers
     [Route("webhooks/stripe")]
     public class StripeWebhookController(
         IStripeFulfillmentService fulfillmentService,
+        IRefundOrchestrationService refundOrchestrationService,
         IOptions<StripeSettings> stripeSettings,
         ILogger<StripeWebhookController> logger) : ControllerBase
     {
-        private static readonly HashSet<string> SupportedEventTypes = new()
+        private static readonly HashSet<string> CheckoutEventTypes = new()
         {
             "checkout.session.completed",
             "checkout.session.async_payment_succeeded",
             "checkout.session.async_payment_failed",
         };
+
+        // COSMECHIC-COMMERCE-OPERATIONS-001B (section 31) : seul refund.updated est
+        // nécessaire — porte directement l'objet Refund (Id/Status/Metadata), permettant une
+        // réconciliation par Refund.Id précise, contrairement à charge.refunded (agrégat au
+        // niveau de la charge). Ne supporte que ce qui est réellement nécessaire (section 31).
+        private const string RefundUpdatedEventType = "refund.updated";
 
         [HttpPost]
         public async Task<IActionResult> Handle()
@@ -69,7 +76,12 @@ namespace Cosmechic.Controllers
 
             logger.LogInformation("Webhook Stripe reçu : {EventId} ({EventType})", stripeEvent.Id, stripeEvent.Type);
 
-            if (!SupportedEventTypes.Contains(stripeEvent.Type))
+            if (stripeEvent.Type == RefundUpdatedEventType)
+            {
+                return await HandleRefundEventAsync(stripeEvent);
+            }
+
+            if (!CheckoutEventTypes.Contains(stripeEvent.Type))
             {
                 // Événement valide mais non pertinent pour ce flux : accusé réception
                 // sans erreur (section 30), aucun traitement.
@@ -114,6 +126,35 @@ namespace Cosmechic.Controllers
                     logger.LogError("Webhook Stripe {EventId} : conflit de stock ({Detail})", stripeEvent.Id, result.Detail);
                     break;
             }
+
+            return Ok();
+        }
+
+        private async Task<IActionResult> HandleRefundEventAsync(Event stripeEvent)
+        {
+            if (stripeEvent.Data.Object is not Refund refund)
+            {
+                logger.LogWarning("Webhook Stripe {EventId} de type {EventType} sans objet Refund exploitable", stripeEvent.Id, stripeEvent.Type);
+                return Ok();
+            }
+
+            // Le Metadata RefundRecordId (posé à la création, section 27) permet de
+            // retrouver notre ligne Refund même si l'écriture de StripeRefundId après
+            // l'appel synchrone a échoué (section 37) — StripeRefundId reste un repli.
+            int? refundRecordId = null;
+            if (refund.Metadata != null
+                && refund.Metadata.TryGetValue("RefundRecordId", out var refundRecordIdRaw)
+                && int.TryParse(refundRecordIdRaw, out var parsed))
+            {
+                refundRecordId = parsed;
+            }
+
+            var outcome = await refundOrchestrationService.ProcessRefundEventAsync(
+                stripeEvent.Id, stripeEvent.Type, refund.Id, refundRecordId, refund.Status, refund.FailureReason);
+
+            logger.LogInformation(
+                "Webhook Stripe {EventId} (refund.updated, Refund Stripe {StripeRefundId}) : {Outcome}",
+                stripeEvent.Id, refund.Id, outcome);
 
             return Ok();
         }

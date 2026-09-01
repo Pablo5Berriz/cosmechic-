@@ -1,0 +1,70 @@
+@using Cosmechic.Models
+@model ReturnRequest
+
+@{
+    ViewData["Title"] = $"Retour #{Model.Id}";
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-folder" style="color:darkblue">@ViewData["Title"]</h1>
+    </div>
+</section>
+
+<div class="container">
+    <dl class="row">
+        <dt class="col-sm-3">Statut</dt>
+        <dd class="col-sm-9">@Model.Status</dd>
+
+        <dt class="col-sm-3">Demandé le</dt>
+        <dd class="col-sm-9">@Model.CreatedAt</dd>
+
+        <dt class="col-sm-3">Motif</dt>
+        <dd class="col-sm-9">@Model.Reason</dd>
+
+        @if (!string.IsNullOrEmpty(Model.CustomerComment))
+        {
+            <dt class="col-sm-3">Votre commentaire</dt>
+            <dd class="col-sm-9">@Model.CustomerComment</dd>
+        }
+
+        @* COSMECHIC-COMMERCE-OPERATIONS-001B (section 57) : AdminComment est une note
+           interne — jamais affichée à un client, uniquement à un Admin. *@
+        @if (User.IsInRole("Admin") && !string.IsNullOrEmpty(Model.AdminComment))
+        {
+            <dt class="col-sm-3">Note admin (interne)</dt>
+            <dd class="col-sm-9">@Model.AdminComment</dd>
+        }
+    </dl>
+
+    <h4>Articles</h4>
+    <table class="table">
+        <thead><tr><th>Produit</th><th>Quantité</th><th>Motif</th></tr></thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>@(item.OrderDetail?.ProduitNom)</td>
+                    <td>@item.Quantity</td>
+                    <td>@item.Reason</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Model.Refunds.Any())
+    {
+        <h4>Remboursements associés</h4>
+        <table class="table">
+            <thead><tr><th>Montant</th><th>Statut</th></tr></thead>
+            <tbody>
+                @foreach (var refund in Model.Refunds)
+                {
+                    <tr><td>@refund.Amount.ToString("0.00") CAD</td><td>@refund.Status</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <a asp-controller="OrderHeaders" asp-action="Details" asp-route-id="@Model.OrderId" class="btn btn-secondary">Retour à la commande</a>
+</div>

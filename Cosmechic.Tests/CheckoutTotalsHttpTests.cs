@@ -154,7 +154,7 @@ namespace Cosmechic.Tests
             Assert.Equal(72.49m, order.OrderTotal);
             Assert.Equal(TestIdentities.CustomerAId, order.ApplicationUserId);
             Assert.Equal(Cosmechic.Utility.SD.PaymentStatusPending, order.PaymentStatus);
-            Assert.Equal(Cosmechic.Utility.SD.StatusPending, order.OrderStatus);
+            Assert.Equal(Cosmechic.Utility.SD.OrderStatusPending, order.OrderStatus);
         }
 
         [Fact]

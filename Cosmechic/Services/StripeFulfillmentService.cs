@@ -1,6 +1,5 @@
 using Cosmechic.Models;
 using Cosmechic.Utility;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Stripe.Checkout;
@@ -13,6 +12,7 @@ namespace Cosmechic.Services
     // ou une commande déjà traités.
     public class StripeFulfillmentService(
         CosmechicsContext context,
+        IOrderLifecycleService lifecycleService,
         ILogger<StripeFulfillmentService> logger) : IStripeFulfillmentService
     {
         private const int MaxConcurrencyAttempts = 3;
@@ -45,7 +45,7 @@ namespace Cosmechic.Services
                 // tranche laquelle des deux gagne — la seconde échoue ici, pas avant.
                 await context.SaveChangesAsync();
             }
-            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            catch (DbUpdateException ex) when (SqlServerErrors.IsUniqueConstraintViolation(ex))
             {
                 context.Entry(processedEvent).State = EntityState.Detached;
                 logger.LogInformation(
@@ -85,7 +85,7 @@ namespace Cosmechic.Services
             // fulfillée une seconde fois, même par un StripeEventId différent pour la
             // même Session/Order (ex. checkout.session.completed puis
             // async_payment_succeeded pour le même paiement).
-            if (orderHeader.PaymentStatus == SD.PaymentStatusApproved)
+            if (orderHeader.PaymentStatus == SD.PaymentStatusPaid)
             {
                 logger.LogInformation(
                     "Commande {OrderId} déjà payée, événement {EventId} ignoré (seconde barrière anti-doublon)",
@@ -99,8 +99,10 @@ namespace Cosmechic.Services
 
             if (isFailureEvent || !isPaid)
             {
-                orderHeader.PaymentStatus = SD.PaymentStatusRejected;
-                orderHeader.OrderStatus = SD.StatusCancelled;
+                lifecycleService.TryTransitionPaymentStatus(
+                    orderHeader, SD.PaymentStatusFailed, "Paiement Stripe échoué ou annulé.", null, SD.ActorTypeStripeWebhook);
+                lifecycleService.TryTransitionOrderStatus(
+                    orderHeader, SD.OrderStatusCancelled, "Paiement Stripe échoué ou annulé.", null, SD.ActorTypeStripeWebhook);
                 await MarkEventAsync(processedEvent, "Processed_PaymentFailed", orderHeader.Id);
                 logger.LogInformation(
                     "Paiement échoué/annulé pour la commande {OrderId} (événement {EventType})", orderHeader.Id, eventType);
@@ -163,11 +165,13 @@ namespace Cosmechic.Services
                     // a été consommé entre-temps par une autre commande. On ne cache pas
                     // le problème et on n'invente pas de système de réservation : le
                     // paiement est reconnu comme réellement effectué (PaymentStatus =
-                    // Approved), mais OrderStatus reste Pending au lieu de passer à
-                    // Processing — cette combinaison (payé + toujours Pending) EST le
-                    // signal explicite qu'une remédiation administrative (remboursement
-                    // ou réapprovisionnement) est nécessaire.
-                    orderHeader.PaymentStatus = SD.PaymentStatusApproved;
+                    // Paid), mais OrderStatus/FulfillmentStatus restent Pending/Unfulfilled
+                    // au lieu de passer à Confirmed/Processing — cette combinaison (payé
+                    // mais toujours non confirmé) EST le signal explicite qu'une
+                    // remédiation administrative (remboursement ou réapprovisionnement)
+                    // est nécessaire.
+                    lifecycleService.TryTransitionPaymentStatus(
+                        orderHeader, SD.PaymentStatusPaid, "Paiement Stripe confirmé (stock indisponible au fulfillment).", null, SD.ActorTypeStripeWebhook);
                     orderHeader.PaymentIntentId = session.PaymentIntentId;
                     orderHeader.PaymentDate = DateTime.UtcNow;
                     await MarkEventAsync(processedEvent, "Processed_StockUnavailable", orderHeader.Id);
@@ -188,10 +192,28 @@ namespace Cosmechic.Services
                         // ultérieur du produit vivant.
                         detail.ProduitNom = detail.Produit.Nom;
                     }
+
+                    // COSMECHIC-COMMERCE-OPERATIONS-001B (section 41) : ligne de ledger pour
+                    // toute mutation de stock, y compris celle-ci (déjà existante avant ce
+                    // lot) — condition de la traçabilité complète maintenant que le retour
+                    // introduit une mutation positive symétrique.
+                    context.StockMovements.Add(new StockMovement
+                    {
+                        ProduitId = detail.ProduitId,
+                        QuantityDelta = -detail.Count,
+                        Reason = SD.StockMovementReasonFulfillment,
+                        OrderId = orderHeader.Id,
+                        ActorType = SD.ActorTypeSystem,
+                        CreatedAt = DateTime.UtcNow,
+                    });
                 }
 
-                orderHeader.PaymentStatus = SD.PaymentStatusApproved;
-                orderHeader.OrderStatus = SD.StatusInProcess;
+                lifecycleService.TryTransitionPaymentStatus(
+                    orderHeader, SD.PaymentStatusPaid, "Paiement Stripe confirmé.", null, SD.ActorTypeStripeWebhook);
+                lifecycleService.TryTransitionOrderStatus(
+                    orderHeader, SD.OrderStatusConfirmed, "Commande confirmée après fulfillment réussi.", null, SD.ActorTypeStripeWebhook);
+                lifecycleService.TryTransitionFulfillmentStatus(
+                    orderHeader, SD.FulfillmentStatusProcessing, "Stock décrémenté, prête à expédier.", null, SD.ActorTypeStripeWebhook);
                 orderHeader.PaymentIntentId = session.PaymentIntentId;
                 orderHeader.PaymentDate = DateTime.UtcNow;
 
@@ -229,7 +251,8 @@ namespace Cosmechic.Services
             // ci-dessus plutôt que de laisser une exception non gérée remonter au
             // webhook (qui provoquerait un retry Stripe inutile sur un problème qui ne
             // se résoudra pas tout seul).
-            orderHeader.PaymentStatus = SD.PaymentStatusApproved;
+            lifecycleService.TryTransitionPaymentStatus(
+                orderHeader, SD.PaymentStatusPaid, "Paiement Stripe confirmé (conflit de concurrence répété au fulfillment).", null, SD.ActorTypeStripeWebhook);
             orderHeader.PaymentIntentId = session.PaymentIntentId;
             orderHeader.PaymentDate = DateTime.UtcNow;
             await MarkEventAsync(processedEvent, "Processed_ConcurrencyExhausted", orderHeader.Id);
@@ -247,13 +270,5 @@ namespace Cosmechic.Services
             await context.SaveChangesAsync();
         }
 
-        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
-        {
-            // SQL Server : 2627 = violation de contrainte UNIQUE/PK, 2601 = index unique
-            // dupliqué. C'est le fournisseur réellement utilisé en production et par les
-            // tests d'intégration SQL Server de ce lot (InMemory ne reproduit pas cette
-            // erreur — voir COSMECHIC-ECOM-CORE-001.md).
-            return ex.InnerException is SqlException sqlEx && sqlEx.Number is 2627 or 2601;
-        }
     }
 }

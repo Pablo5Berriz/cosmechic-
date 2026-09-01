@@ -21,7 +21,7 @@ namespace Cosmechic.Tests
 
         public StripeFulfillmentServiceTests()
         {
-            _sut = new StripeFulfillmentService(_context, NullLogger<StripeFulfillmentService>.Instance);
+            _sut = new StripeFulfillmentService(_context, new OrderLifecycleService(_context), NullLogger<StripeFulfillmentService>.Instance);
         }
 
         private (int OrderId, int ProduitId) SeedPendingOrder(decimal prix, decimal stock, int count, string sessionId = "cs_test_1")
@@ -48,7 +48,8 @@ namespace Cosmechic.Tests
                 OrderDate = DateTime.UtcNow,
                 OrderTotal = prix * count,
                 Subtotal = prix * count,
-                OrderStatus = SD.StatusPending,
+                OrderStatus = SD.OrderStatusPending,
+                FulfillmentStatus = SD.FulfillmentStatusUnfulfilled,
                 PaymentStatus = SD.PaymentStatusPending,
                 SessionId = sessionId,
                 Name = "Alice",
@@ -154,8 +155,8 @@ namespace Cosmechic.Tests
             // Le paiement a réellement eu lieu : reconnu comme tel. OrderStatus reste
             // Pending (pas Processing) : c'est le signal explicite de remédiation
             // (section 20), pas un état caché.
-            Assert.Equal(SD.PaymentStatusApproved, order.PaymentStatus);
-            Assert.Equal(SD.StatusPending, order.OrderStatus);
+            Assert.Equal(SD.PaymentStatusPaid, order.PaymentStatus);
+            Assert.Equal(SD.OrderStatusPending, order.OrderStatus);
             var stock = _context.Produits.AsNoTracking().Single(p => p.ProduitId == produitId).Stock;
             Assert.Equal(0, stock);
         }
@@ -171,8 +172,8 @@ namespace Cosmechic.Tests
 
             Assert.Equal(FulfillmentOutcome.PaymentFailed, result.Outcome);
             var order = _context.OrderHeaders.AsNoTracking().Single(o => o.Id == orderId);
-            Assert.Equal(SD.PaymentStatusRejected, order.PaymentStatus);
-            Assert.Equal(SD.StatusCancelled, order.OrderStatus);
+            Assert.Equal(SD.PaymentStatusFailed, order.PaymentStatus);
+            Assert.Equal(SD.OrderStatusCancelled, order.OrderStatus);
             var stock = _context.Produits.AsNoTracking().Single(p => p.ProduitId == produitId).Stock;
             Assert.Equal(10, stock);
         }
@@ -214,8 +215,9 @@ namespace Cosmechic.Tests
                 .Include(o => o.OrderDetails)
                 .AsNoTracking()
                 .Single(o => o.Id == orderId);
-            Assert.Equal(SD.PaymentStatusApproved, order.PaymentStatus);
-            Assert.Equal(SD.StatusInProcess, order.OrderStatus);
+            Assert.Equal(SD.PaymentStatusPaid, order.PaymentStatus);
+            Assert.Equal(SD.OrderStatusConfirmed, order.OrderStatus);
+            Assert.Equal(SD.FulfillmentStatusProcessing, order.FulfillmentStatus);
             Assert.Equal("pi_test", order.PaymentIntentId);
             Assert.Equal("Creme", order.OrderDetails.Single().ProduitNom);
 

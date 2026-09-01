@@ -43,6 +43,7 @@ namespace Cosmechic.Services
         IStripeCheckoutService stripeCheckoutService,
         IShippingCalculator shippingCalculator,
         ITaxCalculator taxCalculator,
+        IOrderLifecycleService lifecycleService,
         ILogger<OrderCheckoutService> logger) : ICheckoutService
     {
         public async Task<CheckoutResult> CreateCheckoutSessionAsync(string userId, ShippingAddress shipping, string domain)
@@ -122,8 +123,6 @@ namespace Cosmechic.Services
                 TaxAmount = taxResult.TotalTaxAmount,
                 DiscountAmount = discountAmount,
                 OrderTotal = orderTotal,
-                OrderStatus = SD.StatusPending,
-                PaymentStatus = SD.PaymentStatusPending,
                 Name = shipping.Name,
                 PhoneNumber = shipping.PhoneNumber,
                 StreetAddress = shipping.StreetAddress,
@@ -143,9 +142,20 @@ namespace Cosmechic.Services
                 });
             }
 
+            // COSMECHIC-COMMERCE-OPERATIONS-001B (section 8) : seule IOrderLifecycleService
+            // initialise OrderStatus/PaymentStatus/FulfillmentStatus — jamais une affectation
+            // directe ici.
+            lifecycleService.ApplyOrderCreated(orderHeader);
+
             await using var transaction = await context.Database.BeginTransactionAsync();
             context.OrderHeaders.Add(orderHeader);
             await context.SaveChangesAsync();
+
+            // L'Id n'existe qu'après ce premier SaveChangesAsync : la première entrée
+            // d'historique ne peut être enregistrée qu'ici.
+            lifecycleService.RecordEvent(
+                orderHeader, "OrderCreated", null, orderHeader.OrderStatus,
+                "Commande créée à partir du panier.", userId, SD.ActorTypeCustomer);
 
             // COSMECHIC-COMMERCE-OPERATIONS-001A (section 26/27) : la livraison et les taxes
             // sont ajoutées comme lignes Stripe explicites plutôt que via les paramètres

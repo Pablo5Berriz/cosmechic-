@@ -51,6 +51,17 @@ public partial class CosmechicsContext : DbContext
 
     public virtual DbSet<ShoppingCart> ShoppingCarts { get; set; }
 
+    // COSMECHIC-COMMERCE-OPERATIONS-001B : cœur post-achat.
+    public virtual DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
+
+    public virtual DbSet<ReturnRequest> ReturnRequests { get; set; }
+
+    public virtual DbSet<ReturnItem> ReturnItems { get; set; }
+
+    public virtual DbSet<Refund> Refunds { get; set; }
+
+    public virtual DbSet<StockMovement> StockMovements { get; set; }
+
     public virtual DbSet<TemoignagesClient> TemoignagesClients { get; set; }
 
     // Préparation COSMECHIC-DATA-001 pour l'idempotence Stripe (COSMECHIC-ECOM-CORE-001).
@@ -262,7 +273,14 @@ public partial class CosmechicsContext : DbContext
             entity.Property(e => e.DiscountAmount).HasColumnType("money");
             entity.Property(e => e.ShippingMethodName).HasMaxLength(200);
 
+            // COSMECHIC-COMMERCE-OPERATIONS-001B (section 2/25/34) : dimensions distinctes
+            // du cycle de vie post-achat, jamais mélangées avec OrderStatus/PaymentStatus.
+            entity.Property(e => e.FulfillmentStatus).HasMaxLength(50);
+            entity.Property(e => e.RefundedAmount).HasColumnType("money").HasDefaultValue(0m);
+            entity.Property(e => e.RowVersion).IsRowVersion();
+
             entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_OrderTotal_NonNegative", "[OrderTotal] >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_RefundedAmount_WithinTotal", "[RefundedAmount] >= 0 AND [RefundedAmount] <= [OrderTotal]"));
             entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_Subtotal_NonNegative", "[Subtotal] >= 0"));
             entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_ShippingAmount_NonNegative", "[ShippingAmount] >= 0"));
             entity.ToTable(t => t.HasCheckConstraint("CK_OrderHeaders_TaxAmount_NonNegative", "[TaxAmount] >= 0"));
@@ -473,6 +491,127 @@ public partial class CosmechicsContext : DbContext
                 .HasForeignKey(d => d.OrderId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ProcessedStripeEvents_OrderHeaders");
+        });
+
+        modelBuilder.Entity<OrderStatusHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.PreviousStatus).HasMaxLength(50);
+            entity.Property(e => e.NewStatus).HasMaxLength(50);
+            entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.ActorUserId).HasMaxLength(450);
+            entity.Property(e => e.ActorType).HasMaxLength(50).IsRequired();
+
+            entity.HasIndex(e => e.OrderId).HasDatabaseName("IX_OrderStatusHistories_OrderId");
+
+            // Restrict, pas Cascade : l'historique est la preuve d'audit elle-même, elle ne
+            // doit jamais disparaître silencieusement (CosmechicsContext n'expose de toute
+            // façon aucune suppression physique de commande côté admin après ce lot — voir
+            // §9 de la doc d'audit).
+            entity.HasOne(d => d.Order).WithMany(p => p.StatusHistory)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_OrderStatusHistories_OrderHeaders");
+        });
+
+        modelBuilder.Entity<ReturnRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ApplicationUserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.CustomerComment).HasMaxLength(1000);
+            entity.Property(e => e.AdminComment).HasMaxLength(1000);
+
+            entity.HasIndex(e => e.OrderId).HasDatabaseName("IX_ReturnRequests_OrderId");
+            entity.HasIndex(e => e.ApplicationUserId).HasDatabaseName("IX_ReturnRequests_ApplicationUserId");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.ReturnRequests)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ReturnRequests_OrderHeaders");
+        });
+
+        modelBuilder.Entity<ReturnItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Reason).HasMaxLength(500);
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_ReturnItems_Quantity_Positive", "[Quantity] > 0"));
+
+            entity.HasIndex(e => e.ReturnRequestId).HasDatabaseName("IX_ReturnItems_ReturnRequestId");
+            entity.HasIndex(e => e.OrderDetailId).HasDatabaseName("IX_ReturnItems_OrderDetailId");
+
+            entity.HasOne(d => d.ReturnRequest).WithMany(p => p.Items)
+                .HasForeignKey(d => d.ReturnRequestId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_ReturnItems_ReturnRequests");
+
+            // Restrict : une ligne de commande (preuve d'achat) ne doit jamais disparaître
+            // tant qu'un ReturnItem la référence.
+            entity.HasOne(d => d.OrderDetail).WithMany()
+                .HasForeignKey(d => d.OrderDetailId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ReturnItems_OrderDetails");
+        });
+
+        modelBuilder.Entity<Refund>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.IdempotencyKey).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.StripeRefundId).HasMaxLength(255);
+            entity.Property(e => e.Amount).HasColumnType("money");
+            entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Reason).HasMaxLength(500);
+            entity.Property(e => e.RequestedByUserId).HasMaxLength(450);
+            entity.Property(e => e.ActorType).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.FailureCode).HasMaxLength(100);
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_Refunds_Amount_Positive", "[Amount] > 0"));
+
+            // Ancre d'idempotence (section 28/29) : appliquée par le moteur, pas seulement
+            // par le code applicatif — deux tentatives concurrentes de la même opération
+            // logique (même clé) ne peuvent physiquement pas produire deux lignes.
+            entity.HasIndex(e => e.IdempotencyKey).IsUnique().HasDatabaseName("IX_Refunds_IdempotencyKey");
+            entity.HasIndex(e => e.StripeRefundId)
+                .IsUnique()
+                .HasFilter("[StripeRefundId] IS NOT NULL")
+                .HasDatabaseName("IX_Refunds_StripeRefundId");
+            entity.HasIndex(e => e.OrderId).HasDatabaseName("IX_Refunds_OrderId");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.Refunds)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Refunds_OrderHeaders");
+
+            entity.HasOne(d => d.ReturnRequest).WithMany(p => p.Refunds)
+                .HasForeignKey(d => d.ReturnRequestId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Refunds_ReturnRequests");
+        });
+
+        modelBuilder.Entity<StockMovement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.QuantityDelta).HasColumnType("decimal(18, 0)");
+            entity.Property(e => e.Reason).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.ActorUserId).HasMaxLength(450);
+            entity.Property(e => e.ActorType).HasMaxLength(50).IsRequired();
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_StockMovements_QuantityDelta_NotZero", "[QuantityDelta] <> 0"));
+
+            entity.HasIndex(e => e.ProduitId).HasDatabaseName("IX_StockMovements_ProduitId");
+
+            entity.HasOne(d => d.Produit).WithMany()
+                .HasForeignKey(d => d.ProduitId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_StockMovements_Produits");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -14,11 +14,12 @@ namespace Cosmechic.Controllers
 
 	[Authorize]
 
-	public class CartController(CosmechicsContext context, ICheckoutService checkoutService) : Controller
+	public class CartController(CosmechicsContext context, ICheckoutService checkoutService, ICancellationService cancellationService) : Controller
 	{
 
 		private CosmechicsContext _context = context;
 		private readonly ICheckoutService _checkoutService = checkoutService;
+		private readonly ICancellationService _cancellationService = cancellationService;
 
 		[BindProperty]
 
@@ -170,6 +171,54 @@ namespace Cosmechic.Controllers
 
 			return View(orderHeader);
 
+		}
+
+		// COSMECHIC-COMMERCE-OPERATIONS-001B (section 46/76) : reçu durable/imprimable,
+		// distinct de la confirmation immédiate — même contrôle d'ownership (owner ou
+		// Admin), snapshot financier persisté uniquement (jamais recalculé).
+		public IActionResult Receipt(int id)
+		{
+			OrderHeader orderHeader = _context.OrderHeaders
+				.Include(o => o.OrderDetails).ThenInclude(d => d.Produit)
+				.Include(o => o.ShippingMethod)
+				.FirstOrDefault(o => o.Id == id);
+
+			if (orderHeader == null)
+			{
+				return NotFound();
+			}
+
+			var currentUserId = GetCurrentUserId();
+			var isOwner = currentUserId != null && currentUserId == orderHeader.ApplicationUserId;
+			if (!isOwner && !User.IsInRole("Admin"))
+			{
+				return Forbid();
+			}
+
+			return View(orderHeader);
+		}
+
+		// COSMECHIC-COMMERCE-OPERATIONS-001B (section 13/14/51) : annulation client de sa
+		// propre commande — délègue entièrement à ICancellationService (ownership,
+		// politique de blocage, workflow de remboursement le cas échéant) ; ne touche
+		// jamais directement OrderStatus/PaymentStatus ici.
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> CancelOrder(int orderId)
+		{
+			var userId = GetCurrentUserId();
+			if (userId == null)
+			{
+				return Unauthorized();
+			}
+
+			var result = await _cancellationService.CancelOrderAsync(orderId, userId, isAdmin: false, reason: "Annulation demandée par le client.");
+			if (result is CancellationRejected rejected)
+			{
+				TempData["error"] = rejected.Reason;
+			}
+
+			return RedirectToAction("Details", "OrderHeaders", new { id = orderId });
 		}
 
 

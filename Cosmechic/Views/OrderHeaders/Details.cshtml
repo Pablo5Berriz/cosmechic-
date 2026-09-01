@@ -54,11 +54,35 @@
                 <dt class="col-sm-4">Statut du paiement</dt>
                 <dd class="col-sm-8">@Html.DisplayFor(model => model.PaymentStatus)</dd>
 
+                <dt class="col-sm-4">Statut de l'expédition</dt>
+                <dd class="col-sm-8">@Html.DisplayFor(model => model.FulfillmentStatus)</dd>
+
                 <dt class="col-sm-4">Numéro de suivi</dt>
                 <dd class="col-sm-8">@Html.DisplayFor(model => model.TrackingNumber)</dd>
             </dl>
             <a class="btn btn-secondary" asp-action="Index">Retour</a>
+            <a class="btn btn-outline-primary" asp-controller="Cart" asp-action="Receipt" asp-route-id="@Model.Id">Voir le reçu</a>
+            @if (Model.FulfillmentStatus is "Shipped" or "Delivered")
+            {
+                <a class="btn btn-outline-warning" asp-controller="Returns" asp-action="Request" asp-route-orderId="@Model.Id">Demander un retour</a>
+            }
+            @if (Model.OrderStatus != "Cancelled" && Model.FulfillmentStatus is not ("Shipped" or "Delivered") && Model.PaymentStatus != "Refunded")
+            {
+                <form asp-controller="Cart" asp-action="CancelOrder" method="post" style="display:inline" id="cancelOrderForm">
+                    <input type="hidden" name="orderId" value="@Model.Id" />
+                    <button type="submit" class="btn btn-outline-danger">Annuler la commande</button>
+                </form>
+            }
         </div>
     </div>
 </div>
+
+@* CSP interdit les attributs onclick inline : confirmation attachée via un script nonce. *@
+<script nonce="@CspNonce.Nonce">
+    document.getElementById('cancelOrderForm')?.addEventListener('submit', function (e) {
+        if (!confirm('Annuler cette commande ?')) {
+            e.preventDefault();
+        }
+    });
+</script>
 
