@@ -1,0 +1,88 @@
+@using Cosmechic.Models
+@{
+    var shippingMethods = (List<ShippingMethod>)ViewBag.ShippingMethods;
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-bold" style="color:darkblue">Livraison</h1>
+    </div>
+</section>
+<hr />
+
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Comment fonctionne la livraison</h2>
+                <p>
+                    Au moment du paiement, vous choisissez une méthode de livraison parmi celles disponibles.
+                    Le coût de livraison est calculé et ajouté à votre commande avant le paiement — le montant
+                    total (produits, livraison et taxes) vous est toujours montré avant d'être redirigé vers
+                    notre processeur de paiement sécurisé.
+                </p>
+                <p>Nous expédions actuellement au Canada.</p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Méthodes de livraison disponibles</h2>
+                @if (!shippingMethods.Any())
+                {
+                    <p class="text-muted">
+                        Aucune méthode de livraison n'est actuellement configurée. Les méthodes disponibles sont
+                        déterminées au moment du paiement.
+                    </p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <caption class="visually-hidden">Méthodes de livraison actives</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Méthode</th>
+                                    <th scope="col">Coût</th>
+                                    <th scope="col">Livraison gratuite à partir de</th>
+                                    <th scope="col">Délai estimé</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var method in shippingMethods)
+                                {
+                                    <tr>
+                                        <th scope="row">@method.Name</th>
+                                        <td>@method.Price.ToString("0.00") CAD</td>
+                                        <td>
+                                            @(method.FreeShippingThreshold.HasValue
+                                                ? method.FreeShippingThreshold.Value.ToString("0.00") + " CAD"
+                                                : "—")
+                                        </td>
+                                        <td>
+                                            @if (method.EstimatedMinDays.HasValue && method.EstimatedMaxDays.HasValue)
+                                            {
+                                                @($"{method.EstimatedMinDays} à {method.EstimatedMaxDays} jours ouvrables")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">À déterminer</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <section>
+                <h2 class="h5 fw-bold">Suivi de commande</h2>
+                <p>
+                    Une fois votre commande expédiée, le numéro de suivi (lorsqu'il est disponible) apparaît
+                    dans le détail de votre commande, accessible depuis
+                    <a asp-controller="Account" asp-action="Orders">votre espace compte</a>.
+                </p>
+            </section>
+        </div>
+    </div>
+</div>

@@ -1,66 +1,53 @@
-﻿@{
-    ViewData["Title"] = "Nous joindre";
-}
+@model Cosmechic.Models.ViewModels.ContactMessageInput
 
 <section class="py-5" style="margin-top: 100px;">
     <div class="text-center">
-        <h1 class="fw-folder" style=" color:darkblue">
-            @ViewData["Title"]
-        </h1>
+        <h1 class="fw-bold" style="color:darkblue">Nous joindre</h1>
+        <p class="lead mt-3">Une question sur une commande, un produit ou notre boutique ? Écrivez-nous.</p>
     </div>
 </section>
 <hr />
 
-<div class="container mt-5 mb-5" style="margin-top: 100px;">
-    <div class="bg-light rounded-3 py-5 px-4 px-md-5 mb-5">
-        <div class="text-center mb-5">
-            <p class="mb-4">Remplissez le formulaire ci-dessous et un de nos agents vous contactera dans les plus brefs delais.</p>
-            <p class="mb-4">Vous pouvez aussi nous contacter par telephone au +1-581-677-2478 du lundu au samedi de 8h30 a 20h00.</p>
-        </div>
-        <div class="row gx-5 justify-content-center">
-            <div class="col-lg-8 col-xl-6">
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            @if (TempData["ContactSuccess"] is true)
+            {
+                <div class="alert alert-success" role="status">
+                    Votre message a été envoyé. Notre équipe vous répondra par courriel dès que possible.
+                </div>
+            }
 
-                <form id="contactForm" data-sb-form-api-token="API_TOKEN">
-                    <div class="form-floating mb-3">
-                        <input class="form-control" id="lastname" type="text" placeholder="Enter your lastname..." data-sb-validations="required" />
-                        <label for="lastname">Nom(s)</label>
-                        <div class="invalid-feedback" data-sb-feedback="lastname:required">Un nom est requis.</div>
+            <form asp-action="Contact" method="post" novalidate>
+                <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                <fieldset>
+                    <legend class="visually-hidden">Votre message</legend>
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label">Nom</label>
+                        <input asp-for="Name" class="form-control" autocomplete="name" required maxlength="200" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
                     </div>
-                    <div class="form-floating mb-3">
-                        <input class="form-control" id="firstname" type="text" placeholder="Enter your firstname..." data-sb-validations="required" />
-                        <label for="firstname">Prenom(s)</label>
-                        <div class="invalid-feedback" data-sb-feedback="firstname:required">Un nom est requis.</div>
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label">Adresse électronique</label>
+                        <input asp-for="Email" type="email" class="form-control" autocomplete="email" required maxlength="256" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
                     </div>
-                    <div class="form-floating mb-3">
-                        <input class="form-control" id="email" type="email" placeholder="name@example.com" data-sb-validations="required,email" />
-                        <label for="email">Adresse électronique</label>
-                        <div class="invalid-feedback" data-sb-feedback="email:required">Un courriel est requis.</div>
-                        <div class="invalid-feedback" data-sb-feedback="email:email">Le courriel n'est pas valide.</div>
+                    <div class="mb-3">
+                        <label asp-for="Message" class="form-label">Votre message</label>
+                        <textarea asp-for="Message" class="form-control" rows="6" required maxlength="4000"></textarea>
+                        <span asp-validation-for="Message" class="text-danger"></span>
                     </div>
-                    <div class="form-floating mb-3">
-                        <input class="form-control" id="phone" type="tel" placeholder="(123) 456-7890" data-sb-validations="required" />
-                        <label for="phone">Numéro de téléphone</label>
-                        <div class="invalid-feedback" data-sb-feedback="phone:required">Un numéro de téléphone est requis.</div>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <textarea class="form-control" id="message" type="text" placeholder="Saisissez votre message ici..." style="height: 10rem" data-sb-validations="required"></textarea>
-                        <label for="message">Comment puis-je vous aider ?</label>
-                        <div class="invalid-feedback" data-sb-feedback="message:required">Un message est requis.</div>
-                    </div>
-                    <div class="d-none" id="submitSuccessMessage">
-                        <div class="text-center mb-3">
-                            <div class="fw-bolder">Soumission du formulaire réussie!</div>
-                        </div>
-                    </div>
-                    <div class="d-none" id="submitErrorMessage">
-                        <div class="text-center text-danger mb-3">Erreur lors de l'envoi du message!</div>
-                    </div>
-                    <div class="d-grid">
-                        <button class="btn btn-lg disabled" style="background-color: darkblue; color: white;" id="submitButton" type="submit">Soumettre</button>
-                    </div>
-                </form>
-            </div>
+                </fieldset>
+                <button type="submit" class="btn btn-lg" style="background-color: darkblue; color: white;">Envoyer</button>
+            </form>
         </div>
     </div>
 </div>
 
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+}

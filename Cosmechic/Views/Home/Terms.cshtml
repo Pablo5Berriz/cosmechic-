@@ -1,67 +1,106 @@
-﻿@{
-    ViewData["Title"] = "Termes et Conditions";
+@{
+    var supportEmail = ViewBag.SupportEmail as string;
 }
 
 <section class="py-5" style="margin-top: 100px;">
     <div class="text-center">
-        <h1 class="fw-folder" style=" color:darkblue">
-            @ViewData["Title"]
-        </h1>
+        <h1 class="fw-bold" style="color:darkblue">Conditions d'utilisation et de vente</h1>
     </div>
 </section>
 <hr />
 
-<div class="container mt-5 mb-5" style="margin-top: 100px;">
-    <div class="row align-items-center">
-        <div>
-            <strong>Introduction</strong>
-            <p>En utilisant le site web et les services de <strong>CosmeChic.</strong>, vous acceptez sans réserve les termes et conditions énoncés ci-dessous. Nous vous encourageons à les lire attentivement avant d'utiliser notre site ou nos services.</p>
-        </div>
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="alert alert-warning" role="note">
+                Ce document décrit le fonctionnement réel du site. Il n'a pas fait l'objet d'une révision
+                juridique et ne constitue pas un contrat validé par un professionnel du droit.
+            </div>
 
-        <div>
-            <strong>Utilisation du Site</strong>
-            <p>Le contenu de notre site est destiné exclusivement à un usage personnel et non commercial. Toute utilisation abusive du site ou de son contenu est strictement interdite. Nous vous invitons à l'utiliser de manière responsable et éthique.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Utilisation du site</h2>
+                <p>
+                    Le contenu de ce site est destiné à un usage personnel. Vous vous engagez à ne pas tenter de
+                    contourner ses mécanismes de sécurité ni d'en perturber le fonctionnement.
+                </p>
+            </section>
 
-        <div>
-            <strong>Propriété Intellectuelle</strong>
-            <p>
-                Tous les contenus présents sur notre site, y compris les textes, graphiques, logos et images, sont la propriété exclusive de <strong>CosmeChic</strong> ou de nos fournisseurs. Ils sont protégés par les lois sur la propriété intellectuelle en vigueur.
-                Vous n'avez pas le droit de reproduire, distribuer, afficher publiquement, modifier ou utiliser ces contenus sans notre autorisation préalable écrite.
-            </p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Comptes</h2>
+                <p>
+                    Créer un compte vous permet de suivre vos commandes, gérer vos adresses de livraison et vos
+                    demandes de retour. Vous êtes responsable de la confidentialité de vos identifiants de
+                    connexion.
+                </p>
+            </section>
 
-        <div>
-            <strong>Responsabilité</strong>
-            <p>
-                Nous nous efforçons de fournir des informations précises et à jour sur notre site, cependant, nous ne pouvons garantir que toutes les informations sont exemptes d'erreurs ou toujours à jour.
-                Nous déclinons toute responsabilité en cas d'inexactitude ou d'omission dans les informations fournies.
-            </p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Commandes et paiements</h2>
+                <p>
+                    Le prix, les frais de livraison et les taxes applicables sont calculés et affichés avant que
+                    vous ne soyez redirigé vers notre processeur de paiement (Stripe). Nous ne stockons jamais
+                    votre numéro de carte bancaire.
+                </p>
+            </section>
 
-        <div>
-            <strong>Commandes et Paiements</strong>
-            <p>Lorsque vous passez une commande sur notre site, vous vous engagez à fournir des informations véridiques et précises. Vous acceptez également de payer tous les coûts associés à votre commande, y compris le prix des produits, les frais d'expédition et les taxes applicables.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Disponibilité</h2>
+                <p>
+                    La disponibilité des produits est vérifiée au moment du paiement. Il est possible qu'un
+                    produit devienne indisponible entre l'ajout au panier et la confirmation de la commande.
+                </p>
+            </section>
 
-        <div>
-            <strong>Retours et Remboursements</strong>
-            <p>Nous suivons une politique stricte en matière de retours et de remboursements. Pour obtenir des détails sur cette politique, veuillez consulter la section dédiée sur notre site. Nous nous efforçons de garantir votre satisfaction, et nous traitons chaque cas individuellement.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Expédition</h2>
+                <p>
+                    Voir notre <a asp-controller="Home" asp-action="Shipping">politique de livraison</a> pour le
+                    détail des méthodes disponibles et de leur coût.
+                </p>
+            </section>
 
-        <div>
-            <strong>Modifications des Termes</strong>
-            <p>Nous nous réservons le droit de modifier ces termes à tout moment, sans préavis. Votre utilisation continue du site après ces modifications constitue votre acceptation des nouveaux termes. Nous vous encourageons donc à vérifier régulièrement cette section pour rester informé des mises à jour.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Retours et remboursements</h2>
+                <p>
+                    Voir notre <a asp-controller="Home" asp-action="Returns">politique de retours et
+                    remboursements</a> pour le détail du processus.
+                </p>
+            </section>
 
-        <div>
-            <strong>Loi Applicable</strong>
-            <p>Ces termes et conditions sont régis par la loi canadienne. Tout litige découlant de l'utilisation de notre site ou de nos services sera soumis à la juridiction compétente du Canada.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Propriété intellectuelle</h2>
+                <p>
+                    Les textes, images et logos présents sur ce site sont la propriété de Cosmechic ou de ses
+                    fournisseurs et ne peuvent être réutilisés sans autorisation.
+                </p>
+            </section>
 
-        <div>
-            <strong>Contact</strong>
-            <p>Pour toute question ou préoccupation concernant ces termes et conditions, n'hésitez pas à nous contacter à l'adresse suivante : <a style="color: #87CEEB" href="mailto:Cosmechic@Cosmechic.ca" class="email-link">Cosmechic@Cosmechic.ca</a>. Nous sommes là pour répondre à toutes vos questions et préoccupations.</p>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Loi applicable</h2>
+                <p>
+                    La juridiction et le droit applicable à ces conditions n'ont pas encore été déterminés par
+                    l'entreprise.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="h5 fw-bold">Contact</h2>
+                @if (!string.IsNullOrWhiteSpace(supportEmail))
+                {
+                    <p>
+                        Pour toute question sur ces conditions, écrivez-nous à
+                        <a href="mailto:@supportEmail">@supportEmail</a> ou via notre
+                        <a asp-controller="Home" asp-action="Contact">page Contact</a>.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Pour toute question sur ces conditions, utilisez notre
+                        <a asp-controller="Home" asp-action="Contact">page Contact</a>.
+                    </p>
+                }
+            </section>
         </div>
     </div>
 </div>

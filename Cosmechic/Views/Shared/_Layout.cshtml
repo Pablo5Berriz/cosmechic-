@@ -3,6 +3,10 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @if (ViewData["MetaDescription"] is string metaDescription && !string.IsNullOrWhiteSpace(metaDescription))
+    {
+        <meta name="description" content="@metaDescription" />
+    }
     <title>@ViewData["Title"] Cosmechic</title>
 
     <!-- FontAwesome for Icons -->
@@ -156,42 +160,41 @@
         @RenderBody()
     </main>
 
+    @* COSMECHIC-CONTENT-LEGAL-001 (section 18) : liens vers des routes réelles
+       uniquement — la version précédente pointait vers des chemins statiques
+       (/notrehistoire, /blog, /localisez-nous, "Catégorie 1/2/3"...) qui ne
+       correspondaient à aucune route existante. *@
     <footer class="container-fluid bg-dark text-white py-4">
         <div class="container footer-links">
             <div class="row">
-                <!-- Colonne 1 : Cosmechic -->
                 <div class="col-md-3">
                     <h5>Cosmechic</h5>
                     <ul>
-                        <li><a href="/notrehistoire">Notre histoire</a></li>
-                        <li><a href="/apropos">À propos</a></li>
-                        <li><a href="/blog">Blog</a></li>
+                        <li><a asp-controller="Home" asp-action="About">À propos</a></li>
+                        <li><a asp-controller="Home" asp-action="Contact">Contact</a></li>
+                        <li><a asp-controller="Categories" asp-action="Customer">Catégories</a></li>
                     </ul>
                 </div>
-                <!-- Colonne 2 : Service Client -->
                 <div class="col-md-3">
-                    <h5>Service Client</h5>
+                    <h5>Service client</h5>
                     <ul>
-                        <li><a href="/faq">FAQ</a></li>
-                        <li><a href="/retourner-un-article">Retourner un article</a></li>
-                        <li><a href="/politique-de-retour">Politique de retour</a></li>
-                        <li><a href="/nous-ecrire">Nous écrire</a></li>
+                        <li><a asp-controller="Home" asp-action="Faq">FAQ</a></li>
+                        <li><a asp-controller="Home" asp-action="Shipping">Livraison</a></li>
+                        <li><a asp-controller="Home" asp-action="Returns">Retours et remboursements</a></li>
                     </ul>
                 </div>
-                <!-- Colonne 3 : Catégories -->
                 <div class="col-md-3">
-                    <h5>Catégories</h5>
+                    <h5>Légal</h5>
                     <ul>
-                        <li><a href="#">Catégorie 1</a></li>
-                        <li><a href="#">Catégorie 2</a></li>
-                        <li><a href="#">Catégorie 3</a></li>
+                        <li><a asp-controller="Home" asp-action="Privacy">Confidentialité</a></li>
+                        <li><a asp-controller="Home" asp-action="Terms">Conditions d'utilisation</a></li>
                     </ul>
                 </div>
-                <!-- Colonne 4 : Trouver notre boutique -->
                 <div class="col-md-3">
-                    <h5>Trouver notre boutique</h5>
+                    <h5>Mon compte</h5>
                     <ul>
-                        <li><a href="/localisez-nous">Localisez-nous</a></li>
+                        <li><a asp-controller="Account" asp-action="Index">Espace client</a></li>
+                        <li><a asp-controller="Account" asp-action="Orders">Mes commandes</a></li>
                     </ul>
                 </div>
             </div>

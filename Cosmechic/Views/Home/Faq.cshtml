@@ -1,0 +1,146 @@
+@{
+    // COSMECHIC-CONTENT-LEGAL-001 (section 10/23) : accordéon Bootstrap natif
+    // (data-bs-toggle="collapse") — aria-expanded/aria-controls gérés automatiquement
+    // par le composant, jamais de JavaScript maison inaccessible.
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-bold" style="color:darkblue">Foire aux questions</h1>
+    </div>
+</section>
+<hr />
+
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="accordion" id="faqAccordion">
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingAccount">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqAccount" aria-expanded="false" aria-controls="faqAccount">
+                            Comment créer un compte ou modifier mes informations ?
+                        </button>
+                    </h2>
+                    <div id="faqAccount" class="accordion-collapse collapse" aria-labelledby="faqHeadingAccount" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Vous pouvez créer un compte lors de votre première commande. Une fois connecté,
+                            <a asp-controller="Account" asp-action="Profile">votre profil</a> et
+                            <a asp-controller="Account" asp-action="Addresses">vos adresses de livraison</a>
+                            sont modifiables depuis votre espace compte.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingOrder">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqOrder" aria-expanded="false" aria-controls="faqOrder">
+                            Où puis-je voir mes commandes ?
+                        </button>
+                    </h2>
+                    <div id="faqOrder" class="accordion-collapse collapse" aria-labelledby="faqHeadingOrder" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            L'historique complet de vos commandes, avec leur statut et le détail des articles,
+                            est disponible dans <a asp-controller="Account" asp-action="Orders">la section Commandes</a>
+                            de votre compte.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingPayment">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqPayment" aria-expanded="false" aria-controls="faqPayment">
+                            Comment le paiement est-il sécurisé ?
+                        </button>
+                    </h2>
+                    <div id="faqPayment" class="accordion-collapse collapse" aria-labelledby="faqHeadingPayment" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Le paiement est traité par Stripe, un processeur de paiement tiers spécialisé. Vos
+                            informations de carte bancaire ne transitent jamais par nos serveurs.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingShipping">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqShipping" aria-expanded="false" aria-controls="faqShipping">
+                            Quels sont les délais et coûts de livraison ?
+                        </button>
+                    </h2>
+                    <div id="faqShipping" class="accordion-collapse collapse" aria-labelledby="faqHeadingShipping" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Les méthodes de livraison disponibles et leur coût sont indiqués au moment du
+                            paiement, avant toute confirmation. Voir notre
+                            <a asp-controller="Home" asp-action="Shipping">politique de livraison</a> pour le détail.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingTracking">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqTracking" aria-expanded="false" aria-controls="faqTracking">
+                            Comment suivre ma commande ?
+                        </button>
+                    </h2>
+                    <div id="faqTracking" class="accordion-collapse collapse" aria-labelledby="faqHeadingTracking" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Une fois votre commande expédiée, le statut d'expédition et le numéro de suivi
+                            (lorsqu'il est disponible) sont visibles dans le détail de votre commande.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingReturns">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqReturns" aria-expanded="false" aria-controls="faqReturns">
+                            Comment retourner un article ?
+                        </button>
+                    </h2>
+                    <div id="faqReturns" class="accordion-collapse collapse" aria-labelledby="faqHeadingReturns" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Depuis le détail d'une commande livrée, vous pouvez demander un retour pour tout ou
+                            partie des articles reçus. Les conditions et délais applicables sont indiqués dans
+                            notre <a asp-controller="Home" asp-action="Returns">politique de retour</a>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingRefund">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqRefund" aria-expanded="false" aria-controls="faqRefund">
+                            Quand vais-je recevoir mon remboursement ?
+                        </button>
+                    </h2>
+                    <div id="faqRefund" class="accordion-collapse collapse" aria-labelledby="faqHeadingRefund" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Un remboursement, complet ou partiel, est émis après inspection des articles
+                            retournés. Son statut est visible dans le détail de la commande concernée. Voir
+                            notre <a asp-controller="Home" asp-action="Returns">politique de remboursement</a>
+                            pour le détail.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="faqHeadingProducts">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqProducts" aria-expanded="false" aria-controls="faqProducts">
+                            Où puis-je voir tous les produits disponibles ?
+                        </button>
+                    </h2>
+                    <div id="faqProducts" class="accordion-collapse collapse" aria-labelledby="faqHeadingProducts" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Parcourez notre <a asp-controller="Categories" asp-action="Customer">catalogue par
+                            catégories</a>, ou utilisez la recherche en haut de page.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <p class="mt-4">
+                Vous ne trouvez pas la réponse à votre question ?
+                <a asp-controller="Home" asp-action="Contact">Contactez-nous</a>.
+            </p>
+        </div>
+    </div>
+</div>

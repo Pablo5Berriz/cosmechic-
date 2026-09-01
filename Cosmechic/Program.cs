@@ -29,6 +29,12 @@ builder.Services.AddScoped<IAddressService, AddressService>();
 
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 
+// COSMECHIC-CONTENT-LEGAL-001 (section 6/20/28) : aucune valeur par défaut fabriquée —
+// appsettings.json ne fournit que SupportEmail (= Smtp:FromAddress, déjà réel) ; tout le
+// reste reste vide/null tant qu'une décision commerciale/juridique réelle n'existe pas.
+builder.Services.Configure<BusinessInformationOptions>(builder.Configuration.GetSection("BusinessInformation"));
+builder.Services.Configure<CommercePolicyOptions>(builder.Configuration.GetSection("CommercePolicy"));
+
 builder.Services.Configure<ImageUploadSettings>(builder.Configuration.GetSection("Uploads"));
 builder.Services.AddScoped<IProductImageUploadService, ProductImageUploadService>();
 
@@ -75,6 +81,19 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // COSMECHIC-CONTENT-LEGAL-001 (section 9/25) : le formulaire Contact est public et
+    // sans authentification — plafond plus strict qu'AuthSensitive pour limiter l'abus
+    // (spam/relais d'email) par IP.
+    options.AddPolicy("ContactForm", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));

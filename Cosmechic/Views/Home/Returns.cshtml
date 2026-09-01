@@ -1,0 +1,92 @@
+@using Cosmechic.Services
+@{
+    var policy = (CommercePolicyOptions)ViewBag.CommercePolicy;
+}
+
+<section class="py-5" style="margin-top: 100px;">
+    <div class="text-center">
+        <h1 class="fw-bold" style="color:darkblue">Retours et remboursements</h1>
+    </div>
+</section>
+<hr />
+
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Demander un retour</h2>
+                <p>
+                    Depuis <a asp-controller="Account" asp-action="Orders">le détail d'une commande livrée</a>,
+                    vous pouvez demander un retour pour tout ou partie des articles reçus, et indiquer une
+                    raison. Une commande peut faire l'objet de plusieurs demandes de retour distinctes.
+                </p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Délai de retour</h2>
+                @if (policy.ReturnWindowDays.HasValue)
+                {
+                    <p>Vous disposez de @policy.ReturnWindowDays jours pour effectuer une demande de retour.</p>
+                }
+                else
+                {
+                    <p class="text-muted">
+                        Le délai applicable pour effectuer une demande de retour n'a pas encore été défini par
+                        l'entreprise. Consultez cette page avant de finaliser un retour, ou contactez-nous si
+                        vous avez un doute.
+                    </p>
+                }
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Traitement de votre demande</h2>
+                <p>
+                    Une fois votre demande approuvée et les articles reçus, notre équipe les inspecte avant de
+                    décider de leur remise en stock. Le statut de votre retour (demandé, approuvé, reçu, terminé)
+                    est visible en tout temps dans
+                    <a asp-controller="Account" asp-action="Returns">la section Retours de votre compte</a>.
+                </p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Remboursement</h2>
+                <p>
+                    Selon les articles retournés, un remboursement complet ou partiel est émis sur votre méthode
+                    de paiement d'origine. Le statut et le montant de chaque remboursement lié à une commande
+                    sont visibles dans le détail de cette commande.
+                </p>
+                <p>
+                    Frais de livraison remboursables :
+                    @if (!string.IsNullOrWhiteSpace(policy.RefundShippingPolicy))
+                    {
+                        @policy.RefundShippingPolicy
+                    }
+                    else
+                    {
+                        <span class="text-muted">non encore définis par l'entreprise.</span>
+                    }
+                </p>
+                <p>
+                    Taxes remboursables :
+                    @if (!string.IsNullOrWhiteSpace(policy.RefundTaxPolicy))
+                    {
+                        @policy.RefundTaxPolicy
+                    }
+                    else
+                    {
+                        <span class="text-muted">non encore définies par l'entreprise.</span>
+                    }
+                </p>
+            </section>
+
+            <section>
+                <h2 class="h5 fw-bold">Annuler une commande</h2>
+                <p>
+                    Tant qu'une commande n'a pas été expédiée, vous pouvez l'annuler directement depuis
+                    <a asp-controller="Account" asp-action="Orders">votre espace compte</a>. Une commande déjà
+                    expédiée doit passer par une demande de retour plutôt qu'une annulation.
+                </p>
+            </section>
+        </div>
+    </div>
+</div>

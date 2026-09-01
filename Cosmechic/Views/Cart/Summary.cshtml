@@ -189,12 +189,29 @@
 							</ul>
 							<p class="text-muted"><small>Le montant exact facturé est calculé par le serveur et confirmé à l'étape suivante, avant le paiement.</small></p>
 						</div>
+						@* COSMECHIC-CONTENT-LEGAL-001 (section 19) : liens vers les politiques
+						   pertinentes avant paiement. Remplace aussi une estimation de date de
+						   livraison fixe (7-14 jours) qui ne correspondait à aucune méthode de
+						   livraison réelle — le délai dépend de la méthode choisie ci-dessus. *@
 						<div class="card-footer">
 							<div class="row">
-								<div class="col-md-8">
-									<p class="text-muted">
-										Date de livraison approximative: @DateTime.Now.AddDays(7).ToShortDateString() - @DateTime.Now.AddDays(14).ToShortDateString()
+								<div class="col-md-12 mb-3">
+									<p class="text-muted mb-1">
+										<small>
+											Le délai de livraison estimé dépend de la méthode choisie ci-dessus.
+											Consultez notre <a asp-controller="Home" asp-action="Shipping">politique de livraison</a>.
+										</small>
 									</p>
+									<p class="text-muted">
+										<small>
+											En passant commande, vous acceptez nos
+											<a asp-controller="Home" asp-action="Terms">conditions d'utilisation et de vente</a>
+											et notre <a asp-controller="Home" asp-action="Privacy">politique de confidentialité</a>.
+											Voir aussi notre <a asp-controller="Home" asp-action="Returns">politique de retours et remboursements</a>.
+										</small>
+									</p>
+								</div>
+								<div class="col-md-8">
 								</div>
 								<div class="col-md-4">
 									<button type="submit" value="Place Order" class="btn btn-primary btn-block">Passer au paiement</button>

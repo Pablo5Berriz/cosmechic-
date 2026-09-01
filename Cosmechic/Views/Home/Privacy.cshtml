@@ -1,61 +1,100 @@
-﻿@{
-    ViewData["Title"] = "Politique de confidentialité";
+@{
+    var supportEmail = ViewBag.SupportEmail as string;
 }
+
 <section class="py-5" style="margin-top: 100px;">
     <div class="text-center">
-        <h1 class="fw-folder" style=" color:darkblue">
-            @ViewData["Title"]
-        </h1>
+        <h1 class="fw-bold" style="color:darkblue">Politique de confidentialité</h1>
     </div>
 </section>
 <hr />
 
-<div class="container mt-5 mb-5" style="margin-top: 100px;">
-    <div class="row align-items-center">
-        <div>
-            <strong>Introduction</strong>
-            <p>Bienvenue chez <strong>CosmeChic.</strong>, où nous accordons une importance capitale à votre vie privée et à la sécurité de vos données personnelles. Notre politique de confidentialité vise à expliquer en détail comment nous recueillons, utilisons, protégeons et partageons vos informations personnelles.</p>
-        </div>
-
-        <div>
-            <strong>Collecte de Données</strong>
-            <p>Lorsque vous utilisez notre site, diverses informations vous concernant sont collectées. Cela se produit notamment lors de vos achats sur notre plateforme, de votre inscription en tant que membre et lorsque vous entrez en contact avec notre service.</p>
-        </div>
-
-        <div>
-            <strong>Utilisation des Données</strong>
-            <p>
-                Les informations que nous recueillons sont essentiellement utilisées pour gérer efficacement votre compte utilisateur, traiter vos commandes en toute fluidité, établir une communication avec vous et améliorer constamment votre expérience client.
-                En outre, conformément aux lois en vigueur, nous mettons à profit vos données pour des analyses internes et pour mener des actions marketing.
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <p class="text-muted">
+                Cette page décrit, de façon factuelle, les données que le site Cosmechic recueille réellement et
+                comment elles sont utilisées.
             </p>
-        </div>
 
-        <div>
-            <strong>Partage des Données</strong>
-            <p>Nous tenons à vous assurer que nous ne vendons ni ne partageons vos données personnelles avec des tiers sans avoir préalablement obtenu votre consentement. La seule exception à cette règle serait si une exigence légale nous y obligeait.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Données que nous recueillons</h2>
+                <p>Lorsque vous créez un compte, passez commande ou nous contactez, nous recueillons :</p>
+                <ul>
+                    <li>Votre identifiant de compte, nom d'utilisateur et adresse courriel</li>
+                    <li>Votre numéro de téléphone, si vous le renseignez</li>
+                    <li>Les adresses de livraison que vous enregistrez dans votre compte</li>
+                    <li>L'historique de vos commandes, y compris les produits, quantités, montants et statuts (commande, paiement, expédition)</li>
+                    <li>Vos demandes de retour et les remboursements associés</li>
+                    <li>Le numéro de suivi de livraison, lorsqu'il est disponible</li>
+                    <li>Les identifiants techniques transmis par notre processeur de paiement (Stripe) pour associer un paiement à votre commande — jamais votre numéro de carte, qui n'est jamais traité par nos serveurs</li>
+                    <li>Le contenu de tout message envoyé via notre page Contact</li>
+                    <li>Des journaux techniques standards (erreurs, requêtes) nécessaires au fonctionnement et à la sécurité du site</li>
+                </ul>
+            </section>
 
-        <div>
-            <strong>Sécurité des Données</strong>
-            <p>La sécurité de vos informations est primordiale pour nous. C'est pourquoi nous mettons en place toutes les mesures nécessaires pour prévenir tout accès non autorisé, toute modification, divulgation ou destruction de vos données personnelles.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Utilisation des données</h2>
+                <p>
+                    Ces données servent exclusivement à gérer votre compte, traiter vos commandes, calculer la
+                    livraison et les taxes applicables, traiter vos demandes de retour et remboursement, assurer
+                    la sécurité du site et répondre à vos messages. Cosmechic n'exploite aucune donnée à des fins
+                    publicitaires ou marketing : le site ne comporte aucun outil de suivi publicitaire ni
+                    d'analyse comportementale.
+                </p>
+            </section>
 
-        <div>
-            <strong>Vos Droits</strong>
-            <p>En tant qu'individu concerné, vous avez le droit d'accéder à vos données, de les modifier et même de les supprimer. N'hésitez pas à nous contacter si vous souhaitez exercer l'un de ces droits.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Partage des données</h2>
+                <p>
+                    Nous ne vendons vos données à personne. Elles sont partagées uniquement avec les prestataires
+                    strictement nécessaires au fonctionnement du site : notre processeur de paiement (Stripe) pour
+                    traiter les transactions, et notre fournisseur d'envoi de courriels pour les communications
+                    liées à votre compte ou à vos commandes.
+                </p>
+            </section>
 
-        <div>
-            <strong>Modifications de la Politique</strong>
-            <p>Notre politique de confidentialité peut être mise à jour périodiquement pour refléter les évolutions de nos pratiques et des lois en matière de confidentialité. Toutes les modifications seront clairement affichées sur notre site web afin que vous soyez toujours bien informé.</p>
-        </div>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Cookies</h2>
+                <p>Le site n'utilise que des cookies strictement nécessaires à son fonctionnement :</p>
+                <ul>
+                    <li>Un cookie d'authentification, pour vous garder connecté à votre compte</li>
+                    <li>Un cookie de protection contre la falsification de requêtes (anti-CSRF), sur les formulaires</li>
+                    <li>Un cookie de session, pour votre panier lorsque vous n'êtes pas connecté</li>
+                </ul>
+                <p>Aucun cookie publicitaire, de suivi ou d'analyse tiers n'est déposé par ce site.</p>
+            </section>
 
-        <div>
-            <strong>Contact</strong>
-            <p>Si vous avez des questions ou des préoccupations concernant notre politique de confidentialité, n'hésitez pas à nous contacter à l'adresse suivante : <a style="color: #87CEEB" href="mailto:Cosmechic@Cosmechic.ca" class="email-link">Cosmechic@Cosmechic.ca</a>. Nous sommes là pour répondre à toutes vos questions et préoccupations.</p>
+            <section class="mb-4">
+                <h2 class="h5 fw-bold">Vos droits</h2>
+                <p>
+                    Depuis votre compte, vous pouvez consulter et modifier votre profil, vos adresses et
+                    consulter vos commandes et retours. Vous pouvez également demander l'export ou la suppression
+                    de vos données personnelles depuis la section Sécurité de votre compte. La suppression de
+                    compte n'est actuellement possible que si aucune commande n'est associée à votre compte —
+                    l'historique de commande est conservé lorsqu'il existe, le temps qu'une politique de
+                    conservation/anonymisation définitive soit établie.
+                </p>
+            </section>
+
+            <section>
+                <h2 class="h5 fw-bold">Nous contacter</h2>
+                @if (!string.IsNullOrWhiteSpace(supportEmail))
+                {
+                    <p>
+                        Pour toute question sur cette politique ou vos données personnelles, écrivez-nous à
+                        <a href="mailto:@supportEmail">@supportEmail</a> ou via notre
+                        <a asp-controller="Home" asp-action="Contact">page Contact</a>.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Pour toute question sur cette politique ou vos données personnelles, utilisez notre
+                        <a asp-controller="Home" asp-action="Contact">page Contact</a>.
+                    </p>
+                }
+            </section>
         </div>
     </div>
 </div>
-
-
-
