@@ -7,13 +7,19 @@
  * cartes, formulaires, tables, badges, alertes) avec des tokens cohérents,
  * plutôt que d'introduire un nouveau framework ou une feuille de style
  * parallèle. Les couleurs de marque déjà visibles dans le dépôt sont
- * réutilisées telles quelles (--bs-primary: #f4623a défini dans styles.css,
+ * réutilisées telles quelles (--bs-primary: #cb350b défini dans styles.css,
  * header darkorange) — aucune identité chromatique n'est inventée.
+ *
+ * COSMECHIC-LEGAL-READINESS-001 : #bs-primary est passé de #f4623a à
+ * #cb350b (décision PM, contraste texte normal 5.18:1 sur blanc, seuil AA
+ * 4.5:1) — voir docs/audits/COSMECHIC-LEGAL-READINESS-001.md pour le détail
+ * exact des usages remplacés/conservés dans styles.css. --cx-color-primary-dark
+ * (#c34e2e) n'a pas été touché : déjà conforme AA (4.72:1) avant ce lot.
  */
 
 :root {
     /* ---- Couleurs sémantiques (réutilisent les tokens Bootstrap existants) ---- */
-    --cx-color-primary: var(--bs-primary, #f4623a);
+    --cx-color-primary: var(--bs-primary, #cb350b);
     --cx-color-primary-dark: #c34e2e;
     --cx-color-accent: darkorange;
     --cx-color-surface: #ffffff;

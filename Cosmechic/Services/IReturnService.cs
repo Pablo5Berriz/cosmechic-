@@ -17,10 +17,16 @@ namespace Cosmechic.Services
     public sealed record ReturnItemInput(int OrderDetailId, int Quantity, string? Reason);
 
     // COSMECHIC-COMMERCE-OPERATIONS-001B (section 15-20) : demandes de retour, possiblement
-    // partielles. AUCUNE fenêtre de retour (ex. 30 jours) n'est codée en dur — section 19 :
-    // TODO_REQUIRES_BUSINESS_CONFIGURATION tant qu'aucune règle métier n'existe. La seule
-    // porte technique est que la commande ait été réellement expédiée/livrée : une commande
-    // jamais expédiée relève de l'annulation (ICancellationService), pas du retour.
+    // partielles. La seule porte technique inconditionnelle est que la commande ait été
+    // réellement expédiée/livrée : une commande jamais expédiée relève de l'annulation
+    // (ICancellationService), pas du retour.
+    // COSMECHIC-BUSINESS-POLICY-001 : RETURN_WINDOW_DAYS=30 approuvé et branché (voir
+    // ReturnService.CanRequestReturnAsync).
+    // COSMECHIC-LEGAL-READINESS-001 : TODO_REQUIRES_LEGAL_REVIEW — aucune règle sur l'état
+    // d'ouverture/d'utilisation d'un produit cosmétique n'est codée ici (ni exception
+    // hygiène, ni délai spécial, ni frais de retour) : COSMETIC_OPENED_PRODUCT_RETURN_POLICY
+    // reste une décision juridique non tranchée, voir CommercePolicyOptions/ReturnService
+    // pour l'architecture déjà prête à recevoir cette règle sans la disperser ailleurs.
     public interface IReturnService
     {
         // CanRequestReturn centralisée (section 20) : appelée à la fois par la création

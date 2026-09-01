@@ -55,9 +55,14 @@ namespace Cosmechic.Services
             // un client livré "il y a exactement 30 jours" en inéligible dès que quelques
             // millisecondes s'écoulent pendant le traitement de la requête — un défaut réel
             // reproduit lors des tests de frontière (ReturnWindowTests.cs), corrigé ici plutôt
-            // que masqué en assouplissant le test. COSMETIC_OPENED_PRODUCT_RETURN_POLICY reste
-            // volontairement non codé : aucune règle sur l'état d'ouverture/d'utilisation du
-            // produit n'existe — AWAITING_LEGAL_REVIEW.
+            // que masqué en assouplissant le test.
+            // COSMECHIC-LEGAL-READINESS-001 : TODO_REQUIRES_LEGAL_REVIEW —
+            // COSMETIC_OPENED_PRODUCT_RETURN_POLICY reste volontairement non codé : aucune
+            // règle sur l'état d'ouverture/d'utilisation d'un produit cosmétique n'existe ici
+            // (pas d'exception hygiène, pas de délai spécial, pas de frais de retour propres à
+            // cette catégorie). CommercePolicyOptions est l'architecture déjà en place pour
+            // recevoir cette règle le jour où elle sera validée juridiquement, sans la
+            // disperser dans un contrôleur ou une vue.
             var returnWindowDays = policyOptions.Value.ReturnWindowDays;
             if (returnWindowDays.HasValue)
             {
