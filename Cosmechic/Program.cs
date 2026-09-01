@@ -2,6 +2,7 @@ using Cosmechic.Data;
 using Cosmechic.Models;
 using Cosmechic.Services;
 using Cosmechic.Utility;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -111,6 +112,22 @@ else
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+// COSMECHIC-RELEASE-CONFIG-001 (section 18) : aucun reverse proxy réel n'est configuré
+// pour l'instant (aucune infrastructure n'est connue de ce dépôt). Cette étape prépare
+// uniquement le pipeline pour un futur reverse proxy TLS-terminating (Nginx, Cloudflare,
+// etc.) SANS faire confiance à un réseau/proxy inventé : ForwardedHeadersOptions.KnownProxies
+// et KnownNetworks restent volontairement à leurs valeurs par défaut d'ASP.NET Core, qui ne
+// font confiance aux en-têtes X-Forwarded-For/X-Forwarded-Proto que si la connexion directe
+// provient du loopback. Sans reverse proxy (ou avec un reverse proxy sur une autre machine),
+// ce middleware ne modifie donc rien au comportement actuel. Faire confiance à un proxy
+// distant réel nécessitera de configurer explicitement KnownProxies/KnownNetworks une fois
+// la topologie réseau de production connue — AWAITING_INFRA_CONFIGURATION (voir
+// docs/audits/COSMECHIC-RELEASE-CONFIG-001.md, section 15).
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+});
 
 app.UseHttpsRedirection();
 

@@ -251,8 +251,16 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    @* COSMECHIC-RELEASE-CONFIG-001 (section 6) : jQuery et le bundle JS Bootstrap
+       étaient chargés depuis un CDN alors que des copies locales identiques/cohérentes
+       existaient déjà dans wwwroot/lib (jQuery 3.6.0 = version CDN exacte ; Bootstrap
+       JS 5.1.0 = même version que le CSS Bootstrap déjà local ci-dessus, ligne 19).
+       La navigation mobile (.navbar-toggler / data-bs-toggle) et les menus déroulants
+       dépendent entièrement de ce bundle : un CDN tiers indisponible rendait ces
+       éléments non fonctionnels sans qu'aucune erreur ne soit visible côté serveur.
+       Aucune nouvelle dépendance téléchargée — uniquement les fichiers déjà présents. *@
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
     <script src="~/js/scripts.js"></script>
