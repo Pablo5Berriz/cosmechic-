@@ -5,14 +5,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Encodings.Web;
-using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
-using MimeKit;
 
 namespace Cosmechic.Areas.Identity.Pages.Account
 {
@@ -24,15 +22,13 @@ namespace Cosmechic.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<IdentityUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
-        private readonly IConfiguration _configuration;
 
         public RegisterModel(
             UserManager<IdentityUser> userManager,
             IUserStore<IdentityUser> userStore,
             SignInManager<IdentityUser> signInManager,
             ILogger<RegisterModel> logger,
-            IEmailSender emailSender,
-            IConfiguration configuration)
+            IEmailSender emailSender)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -40,7 +36,6 @@ namespace Cosmechic.Areas.Identity.Pages.Account
             _signInManager = signInManager;
             _logger = logger;
             _emailSender = emailSender;
-            _configuration = configuration;
         }
 
         /// <summary>
@@ -126,29 +121,27 @@ namespace Cosmechic.Areas.Identity.Pages.Account
                     var userId = await _userManager.GetUserIdAsync(user);
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-                    var callbackUrl = $"{Request.Scheme}://{Request.Host}/Identity/Account/ConfirmEmail?userId={userId}&code={code}";
+                    var callbackUrl = Url.Page(
+                        "/Account/ConfirmEmail",
+                        pageHandler: null,
+                        values: new { area = "Identity", userId, code },
+                        protocol: Request.Scheme);
 
-
-                    var smtpHost = _configuration["Smtp:Host"];
-                    var smtpPort = _configuration.GetValue<int>("Smtp:Port");
-                    var smtpUsername = _configuration["Smtp:Username"];
-                    var smtpPassword = _configuration["Smtp:Password"];
-
-                    var message = new MimeMessage();
-                    message.From.Add(new MailboxAddress("COSMECHIC", "equipe.cosmechic@gmail.com"));
-                    message.To.Add(new MailboxAddress("", Input.Email));
-                    message.Subject = "Confirm your email";
-                    message.Body = new TextPart("html")
+                    try
                     {
-                        Text = $"S'il vous plait confirmez votre mail par <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>en cliquant ici</a>."
-                    };
-
-                    using (var client = new SmtpClient())
+                        await _emailSender.SendEmailAsync(
+                            Input.Email,
+                            "Confirm your email",
+                            $"S'il vous plait confirmez votre mail par <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>en cliquant ici</a>.");
+                    }
+                    catch (Exception ex)
                     {
-                        await client.ConnectAsync(smtpHost, smtpPort, false);
-                        await client.AuthenticateAsync(smtpUsername, smtpPassword);
-                        await client.SendAsync(message);
-                        await client.DisconnectAsync(true);
+                        // Le compte est déjà créé à ce stade (non confirmé) : ne jamais le
+                        // supprimer sur un simple échec d'envoi (section 15). L'utilisateur
+                        // reste sur un compte non confirmé et peut redemander un email via
+                        // ResendEmailConfirmation une fois le problème résolu. Jamais de
+                        // détail d'erreur SMTP exposé à l'utilisateur.
+                        _logger.LogError(ex, "Échec de l'envoi de l'email de confirmation d'inscription");
                     }
 
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)

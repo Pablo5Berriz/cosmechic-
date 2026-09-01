@@ -28,6 +28,7 @@ namespace Cosmechic.Tests.Infrastructure
         private readonly string _dbName = Guid.NewGuid().ToString();
 
         public FakeStripeCheckoutService StripeCheckoutService { get; } = new();
+        public FakeEmailSender EmailSender { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -50,6 +51,9 @@ namespace Cosmechic.Tests.Infrastructure
 
                 services.RemoveAll<IStripeCheckoutService>();
                 services.AddSingleton<IStripeCheckoutService>(StripeCheckoutService);
+
+                services.RemoveAll<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender>();
+                services.AddSingleton<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender>(EmailSender);
 
                 services.RemoveAll<IAntiforgery>();
                 services.AddSingleton<IAntiforgery, NoOpAntiforgery>();
@@ -104,6 +108,22 @@ namespace Cosmechic.Tests.Infrastructure
         {
             using var scope = Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<CosmechicsContext>();
+            return query(context);
+        }
+
+        // Identity (UserManager/SignInManager) opère exclusivement contre
+        // ApplicationDbContext. En test, ApplicationDbContext et CosmechicsContext
+        // pointent vers deux bases InMemory NOMMÉES DIFFÉREMMENT (ReplaceDbContext) —
+        // contrairement à la production où les deux contextes partagent la même table
+        // AspNetUsers physique (ARCH-002/DATA-001), InMemory ne permet pas de modéliser
+        // ce partage. Un utilisateur créé via UserManager n'est donc visible qu'à travers
+        // CE helper dans les tests InMemory ; la visibilité réelle et complète à travers
+        // CosmechicsContext.AspNetUsers (mêmes colonnes, même table) n'est vérifiable que
+        // contre un vrai SQL Server — voir IdentitySqlServerTests.
+        public T QueryIdentity<T>(Func<ApplicationDbContext, T> query)
+        {
+            using var scope = Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             return query(context);
         }
 

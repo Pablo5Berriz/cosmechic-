@@ -16,6 +16,8 @@ builder.Services.AddScoped<IStripeCheckoutService, StripeCheckoutService>();
 builder.Services.AddScoped<ICheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IStripeFulfillmentService, StripeFulfillmentService>();
 
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
@@ -27,6 +29,12 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// COSMECHIC-IDENTITY-COMMS-001 : remplace le IEmailSender par défaut (no-op) que
+// AddDefaultIdentity vient d'enregistrer via TryAddTransient. Doit être appelé APRÈS
+// AddDefaultIdentity : la dernière registration d'un service transient/scoped est celle
+// résolue par l'injection de dépendances.
+builder.Services.AddTransient<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSession(options =>

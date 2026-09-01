@@ -59,7 +59,7 @@ namespace Cosmechic.Areas.Identity.Pages.Account
             /// </summary>
             [DataType(DataType.Password)]
             [Display(Name = "Confirmer le mot de passe")]
-            [Compare("Mot de passe", ErrorMessage = "Le mot de passe et le mot de passe de confirmation ne correspondent pas.")]
+            [Compare("Password", ErrorMessage = "Le mot de passe et le mot de passe de confirmation ne correspondent pas.")]
             public string ConfirmPassword { get; set; }
 
             /// <summary>

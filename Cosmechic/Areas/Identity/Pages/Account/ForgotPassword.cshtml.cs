@@ -7,13 +7,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
-using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
-using MimeKit;
 
 namespace Cosmechic.Areas.Identity.Pages.Account
 {
@@ -21,11 +19,16 @@ namespace Cosmechic.Areas.Identity.Pages.Account
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly ILogger<ForgotPasswordModel> _logger;
 
-        public ForgotPasswordModel(UserManager<IdentityUser> userManager, IEmailSender emailSender)
+        public ForgotPasswordModel(
+            UserManager<IdentityUser> userManager,
+            IEmailSender emailSender,
+            ILogger<ForgotPasswordModel> logger)
         {
             _userManager = userManager;
             _emailSender = emailSender;
+            _logger = logger;
         }
 
         [BindProperty]
@@ -57,21 +60,21 @@ namespace Cosmechic.Areas.Identity.Pages.Account
                     values: new { area = "Identity", code },
                     protocol: Request.Scheme);
 
-                var message = new MimeMessage();
-                message.From.Add(new MailboxAddress("COSMECHIC", "equipe.cosmechic@gmail.com"));
-                message.To.Add(new MailboxAddress("", Input.Email));
-                message.Subject = "Reset Password";
-                message.Body = new TextPart("html")
+                try
                 {
-                    Text = $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>."
-                };
-
-                using (var client = new SmtpClient())
+                    await _emailSender.SendEmailAsync(
+                        Input.Email,
+                        "Reset Password",
+                        $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+                }
+                catch (Exception ex)
                 {
-                    await client.ConnectAsync("smtp.gmail.com", 465, true);
-                    await client.AuthenticateAsync("your_email@gmail.com", "your_password");
-                    await client.SendAsync(message);
-                    await client.DisconnectAsync(true);
+                    // Même comportement que succès (redirection vers
+                    // ForgotPasswordConfirmation) qu'il y ait eu un souci d'envoi ou non :
+                    // ne jamais laisser un échec SMTP distinguer "compte existant, email en
+                    // échec" de "compte inexistant" côté utilisateur (pas d'énumération de
+                    // comptes, section 18/30). Erreur loguée pour diagnostic opérationnel.
+                    _logger.LogError(ex, "Échec de l'envoi de l'email de réinitialisation de mot de passe");
                 }
 
                 return RedirectToPage("./ForgotPasswordConfirmation");
