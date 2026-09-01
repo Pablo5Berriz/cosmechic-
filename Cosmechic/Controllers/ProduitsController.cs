@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Cosmechic.Models;
+using Cosmechic.Services;
 using Cosmechic.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -268,6 +269,13 @@ namespace Cosmechic.Controllers
             return View(cart);
         }
 
+        // COSMECHIC-ECOM-CORE-001 (section 5) : l'ajout au panier ne décrémente plus
+        // jamais Produit.Stock. Le stock n'est consommé qu'au fulfillment réel d'une
+        // commande payée (StripeFulfillmentService), pas à l'ajout au panier — un panier
+        // abandonné ou vidé ne doit laisser aucune trace sur le stock. Cette action se
+        // limite à valider la quantité demandée (section 6) et à créer/mettre à jour la
+        // ligne de panier ; la disponibilité du stock n'est vérifiée qu'à titre informatif
+        // pour l'utilisateur, jamais comme une réservation.
         [HttpPost]
         [Authorize]
         public IActionResult ItemDetails(ShoppingCart shoppingCart)
@@ -276,22 +284,33 @@ namespace Cosmechic.Controllers
             var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
             shoppingCart.ApplicationUserId = userId;
 
-            var product = _context.Produits.Find(shoppingCart.ProduitId);
+            if (!CartQuantityPolicy.IsValidRequestedQuantity(shoppingCart.Count))
+            {
+                TempData["error"] = "Quantité invalide";
+                return RedirectToAction(nameof(Index));
+            }
 
-            if (product == null || product.Stock < shoppingCart.Count)
+            var product = _context.Produits.Find(shoppingCart.ProduitId);
+            if (product == null)
+            {
+                TempData["error"] = "Produit introuvable";
+                return RedirectToAction(nameof(Index));
+            }
+
+            ShoppingCart cartFromDb = _context.ShoppingCarts.Where(u => u.ApplicationUserId == userId && u.ProduitId == shoppingCart.ProduitId).FirstOrDefault();
+            var resultingQuantity = (cartFromDb?.Count ?? 0) + shoppingCart.Count;
+
+            // Vérification purement informative (pas une réservation) : le stock réel n'est
+            // vérifié et consommé qu'au moment du fulfillment de la commande payée.
+            if (product.Stock < resultingQuantity)
             {
                 TempData["error"] = "Quantité non disponible";
                 return RedirectToAction(nameof(Index));
             }
 
-            product.Stock -= shoppingCart.Count;
-            _context.Update(product);
-            _context.SaveChanges();
-
-            ShoppingCart cartFromDb = _context.ShoppingCarts.Where(u => u.ApplicationUserId == userId && u.ProduitId == shoppingCart.ProduitId).FirstOrDefault();
             if (cartFromDb != null)
             {
-                cartFromDb.Count += shoppingCart.Count;
+                cartFromDb.Count = resultingQuantity;
                 _context.ShoppingCarts.Update(cartFromDb);
             }
             else

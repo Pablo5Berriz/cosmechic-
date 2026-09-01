@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -15,17 +16,30 @@ namespace Cosmechic.Tests.Infrastructure
     // filtres [Authorize]/[Authorize(Roles=...)]), en substituant uniquement :
     //   - les deux DbContext SQL Server -> EF Core InMemory (base isolée par instance),
     //   - le schéma d'authentification par défaut -> TestAuthHandler,
-    //   - IPaymentSessionService -> FakePaymentSessionService (aucun appel réseau Stripe).
+    //   - IStripeCheckoutService -> FakeStripeCheckoutService (aucun appel réseau Stripe).
     // Aucune modification de Program.cs pour ces aspects : tout se fait ici, côté test.
     public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
+        // Secret de test fixe, jamais un vrai secret Stripe (COSMECHIC-ECOM-CORE-001,
+        // section 37) : appsettings.json ne fournit qu'une chaîne vide en Stripe:WebhookSecret ;
+        // les tests qui signent un payload webhook doivent utiliser exactement cette valeur.
+        public const string TestWebhookSecret = "whsec_test_fixture_secret_do_not_use_in_prod";
+
         private readonly string _dbName = Guid.NewGuid().ToString();
 
-        public FakePaymentSessionService PaymentSessionService { get; } = new();
+        public FakeStripeCheckoutService StripeCheckoutService { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
+
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Stripe:WebhookSecret"] = TestWebhookSecret,
+                });
+            });
 
             builder.ConfigureServices(services =>
             {
@@ -34,8 +48,8 @@ namespace Cosmechic.Tests.Infrastructure
 
                 services.AddDistributedMemoryCache();
 
-                services.RemoveAll<IPaymentSessionService>();
-                services.AddSingleton<IPaymentSessionService>(PaymentSessionService);
+                services.RemoveAll<IStripeCheckoutService>();
+                services.AddSingleton<IStripeCheckoutService>(StripeCheckoutService);
 
                 services.RemoveAll<IAntiforgery>();
                 services.AddSingleton<IAntiforgery, NoOpAntiforgery>();
@@ -65,6 +79,13 @@ namespace Cosmechic.Tests.Infrastructure
             {
                 options.UseInMemoryDatabase(dbName);
                 options.UseInternalServiceProvider(inMemoryServices);
+                // CheckoutService/StripeFulfillmentService ouvrent une transaction
+                // explicite (COSMECHIC-ECOM-CORE-001, section 18) : InMemory ne supporte
+                // pas les transactions et lève par défaut une erreur de configuration.
+                // La garantie transactionnelle réelle est vérifiée contre SQL Server
+                // (SqlServerFixture), pas ici — on désactive seulement l'avertissement
+                // pour permettre à ces tests HTTP de bout en bout de s'exécuter.
+                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
             });
         }
 
