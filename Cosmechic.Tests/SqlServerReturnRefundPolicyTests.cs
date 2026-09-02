@@ -93,7 +93,11 @@ namespace Cosmechic.Tests
             return (order.Id, detailA.Id, detailB.Id);
         }
 
-        private static async Task<int> SeedCompletedReturnAsync(CosmechicsContext context, int orderId, int orderDetailId, int quantity)
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 8) : category détermine
+        // désormais la RefundCause dérivée côté serveur par RequestReturnRefundAsync — plus
+        // aucun appelant ne peut la fournir directement.
+        private static async Task<int> SeedCompletedReturnAsync(
+            CosmechicsContext context, int orderId, int orderDetailId, int quantity, ReturnReasonCategory category)
         {
             var returnRequest = new ReturnRequest
             {
@@ -106,10 +110,54 @@ namespace Cosmechic.Tests
             context.ReturnRequests.Add(returnRequest);
             await context.SaveChangesAsync();
 
-            context.ReturnItems.Add(new ReturnItem { ReturnRequestId = returnRequest.Id, OrderDetailId = orderDetailId, Quantity = quantity });
+            context.ReturnItems.Add(new ReturnItem
+            {
+                ReturnRequestId = returnRequest.Id,
+                OrderDetailId = orderDetailId,
+                Quantity = quantity,
+                Category = category,
+            });
             await context.SaveChangesAsync();
 
             return returnRequest.Id;
+        }
+
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 14/18) : preuve directe que la
+        // migration AddReturnReasonCategory backfill correctement une ligne ReturnItem
+        // "historique" (insérée sans spécifier Category, exactement ce qui se produirait pour
+        // une ligne déjà en base au moment où AddColumn s'exécute) vers LegacyUnclassified —
+        // jamais requalifiée arbitrairement en ChangeOfMind. Utilise la contrainte DEFAULT SQL
+        // réellement posée par la migration (ExecuteSqlRaw, colonne omise), pas une valeur
+        // choisie côté C#.
+        [Fact]
+        public async Task HistoricalReturnItem_InsertedWithoutCategory_BackfillsToLegacyUnclassified_NeverChangeOfMind()
+        {
+            if (SkipIfUnavailable()) return;
+
+            using var setupContext = _fixture.CreateBusinessContext();
+            var (orderId, detailAId, _) = await SeedOrderWithTwoLinesAsync(setupContext);
+
+            var returnRequest = new ReturnRequest
+            {
+                OrderId = orderId,
+                ApplicationUserId = "irrelevant",
+                Status = SD.ReturnStatusRequested,
+                CreatedAt = DateTime.UtcNow,
+            };
+            setupContext.ReturnRequests.Add(returnRequest);
+            await setupContext.SaveChangesAsync();
+
+            // Colonne Category volontairement omise — reproduit exactement l'état d'une ligne
+            // pré-existante au moment de l'exécution de la migration AddColumn.
+            await setupContext.Database.ExecuteSqlRawAsync(
+                "INSERT INTO [ReturnItems] ([ReturnRequestId], [OrderDetailId], [Quantity], [Restocked]) VALUES ({0}, {1}, {2}, 0)",
+                returnRequest.Id, detailAId, 1);
+
+            using var verify = _fixture.CreateBusinessContext();
+            var item = await verify.ReturnItems.AsNoTracking().SingleAsync(ri => ri.ReturnRequestId == returnRequest.Id);
+
+            Assert.Equal(ReturnReasonCategory.LegacyUnclassified, item.Category);
+            Assert.NotEqual(ReturnReasonCategory.ChangeOfMind, item.Category);
         }
 
         [Fact]
@@ -119,13 +167,14 @@ namespace Cosmechic.Tests
 
             using var setupContext = _fixture.CreateBusinessContext();
             var (orderId, detailAId, _) = await SeedOrderWithTwoLinesAsync(setupContext);
-            var returnRequestId = await SeedCompletedReturnAsync(setupContext, orderId, detailAId, 1);
+            var returnRequestId = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailAId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
 
             using var context = _fixture.CreateBusinessContext();
             var service = new RefundOrchestrationService(
                 context, new FakeStripeRefundService(), new OrderLifecycleService(context), NullLogger<RefundOrchestrationService>.Instance);
 
-            var result = await service.RequestReturnRefundAsync(returnRequestId, RefundCause.MerchantFault, "erreur d'envoi", "admin-1", SD.ActorTypeAdmin);
+            var result = await service.RequestReturnRefundAsync(returnRequestId, "erreur d'envoi", "admin-1", SD.ActorTypeAdmin);
 
             Assert.IsType<RefundSucceeded>(result);
             using var verify = _fixture.CreateBusinessContext();
@@ -154,13 +203,14 @@ namespace Cosmechic.Tests
 
             using var setupContext = _fixture.CreateBusinessContext();
             var (orderId, detailAId, _) = await SeedOrderWithTwoLinesAsync(setupContext);
-            var returnRequestId = await SeedCompletedReturnAsync(setupContext, orderId, detailAId, 1);
+            var returnRequestId = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailAId, 1, ReturnReasonCategory.ChangeOfMind);
 
             using var context = _fixture.CreateBusinessContext();
             var service = new RefundOrchestrationService(
                 context, new FakeStripeRefundService(), new OrderLifecycleService(context), NullLogger<RefundOrchestrationService>.Instance);
 
-            var result = await service.RequestReturnRefundAsync(returnRequestId, RefundCause.CustomerRemorse, "changement d'avis", "admin-1", SD.ActorTypeAdmin);
+            var result = await service.RequestReturnRefundAsync(returnRequestId, "changement d'avis", "admin-1", SD.ActorTypeAdmin);
 
             Assert.IsType<RefundSucceeded>(result);
             using var verify = _fixture.CreateBusinessContext();
@@ -176,13 +226,15 @@ namespace Cosmechic.Tests
 
             using var setupContext = _fixture.CreateBusinessContext();
             var (orderId, detailAId, detailBId) = await SeedOrderWithTwoLinesAsync(setupContext);
-            var returnA = await SeedCompletedReturnAsync(setupContext, orderId, detailAId, 1);
-            var returnB = await SeedCompletedReturnAsync(setupContext, orderId, detailBId, 1);
+            var returnA = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailAId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
+            var returnB = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailBId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
 
             using var contextA = _fixture.CreateBusinessContext();
             var serviceA = new RefundOrchestrationService(
                 contextA, new FakeStripeRefundService(), new OrderLifecycleService(contextA), NullLogger<RefundOrchestrationService>.Instance);
-            var resultA = await serviceA.RequestReturnRefundAsync(returnA, RefundCause.MerchantFault, null, "admin-1", SD.ActorTypeAdmin);
+            var resultA = await serviceA.RequestReturnRefundAsync(returnA, null, "admin-1", SD.ActorTypeAdmin);
             Assert.IsType<RefundSucceeded>(resultA);
 
             // Deuxième retour, même commande, cause MerchantFault également : la livraison
@@ -190,7 +242,7 @@ namespace Cosmechic.Tests
             using var contextB = _fixture.CreateBusinessContext();
             var serviceB = new RefundOrchestrationService(
                 contextB, new FakeStripeRefundService(), new OrderLifecycleService(contextB), NullLogger<RefundOrchestrationService>.Instance);
-            var resultB = await serviceB.RequestReturnRefundAsync(returnB, RefundCause.MerchantFault, null, "admin-1", SD.ActorTypeAdmin);
+            var resultB = await serviceB.RequestReturnRefundAsync(returnB, null, "admin-1", SD.ActorTypeAdmin);
             Assert.IsType<RefundSucceeded>(resultB);
 
             using var verify = _fixture.CreateBusinessContext();
@@ -214,19 +266,20 @@ namespace Cosmechic.Tests
 
             using var setupContext = _fixture.CreateBusinessContext();
             var (orderId, detailAId, _) = await SeedOrderWithTwoLinesAsync(setupContext);
-            var returnRequestId = await SeedCompletedReturnAsync(setupContext, orderId, detailAId, 1);
+            var returnRequestId = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailAId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
 
             using var context = _fixture.CreateBusinessContext();
             var service = new RefundOrchestrationService(
                 context, new FakeStripeRefundService(), new OrderLifecycleService(context), NullLogger<RefundOrchestrationService>.Instance);
 
-            var first = await service.RequestReturnRefundAsync(returnRequestId, RefundCause.MerchantFault, null, "admin-1", SD.ActorTypeAdmin);
+            var first = await service.RequestReturnRefundAsync(returnRequestId, null, "admin-1", SD.ActorTypeAdmin);
             Assert.IsType<RefundSucceeded>(first);
 
             using var context2 = _fixture.CreateBusinessContext();
             var service2 = new RefundOrchestrationService(
                 context2, new FakeStripeRefundService(), new OrderLifecycleService(context2), NullLogger<RefundOrchestrationService>.Instance);
-            var second = await service2.RequestReturnRefundAsync(returnRequestId, RefundCause.MerchantFault, null, "admin-1", SD.ActorTypeAdmin);
+            var second = await service2.RequestReturnRefundAsync(returnRequestId, null, "admin-1", SD.ActorTypeAdmin);
 
             Assert.IsType<RefundRejected>(second);
         }
@@ -242,14 +295,14 @@ namespace Cosmechic.Tests
             var returnRequest = new ReturnRequest { OrderId = orderId, ApplicationUserId = "irrelevant", Status = SD.ReturnStatusReceived, CreatedAt = DateTime.UtcNow };
             setupContext.ReturnRequests.Add(returnRequest);
             await setupContext.SaveChangesAsync();
-            setupContext.ReturnItems.Add(new ReturnItem { ReturnRequestId = returnRequest.Id, OrderDetailId = detailAId, Quantity = 1 });
+            setupContext.ReturnItems.Add(new ReturnItem { ReturnRequestId = returnRequest.Id, OrderDetailId = detailAId, Quantity = 1, Category = ReturnReasonCategory.WrongItemOrMerchantFault });
             await setupContext.SaveChangesAsync();
 
             using var context = _fixture.CreateBusinessContext();
             var service = new RefundOrchestrationService(
                 context, new FakeStripeRefundService(), new OrderLifecycleService(context), NullLogger<RefundOrchestrationService>.Instance);
 
-            var result = await service.RequestReturnRefundAsync(returnRequest.Id, RefundCause.MerchantFault, null, "admin-1", SD.ActorTypeAdmin);
+            var result = await service.RequestReturnRefundAsync(returnRequest.Id, null, "admin-1", SD.ActorTypeAdmin);
 
             Assert.IsType<RefundRejected>(result);
         }
@@ -261,8 +314,10 @@ namespace Cosmechic.Tests
 
             using var setupContext = _fixture.CreateBusinessContext();
             var (orderId, detailAId, detailBId) = await SeedOrderWithTwoLinesAsync(setupContext);
-            var returnA = await SeedCompletedReturnAsync(setupContext, orderId, detailAId, 1);
-            var returnB = await SeedCompletedReturnAsync(setupContext, orderId, detailBId, 1);
+            var returnA = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailAId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
+            var returnB = await SeedCompletedReturnAsync(
+                setupContext, orderId, detailBId, 1, ReturnReasonCategory.WrongItemOrMerchantFault);
 
             using var contextA = _fixture.CreateBusinessContext();
             using var contextB = _fixture.CreateBusinessContext();
@@ -275,8 +330,8 @@ namespace Cosmechic.Tests
             // à chaque tentative, les deux pourraient réclamer la livraison (15$ chacune) et
             // dépasser ensemble l'OrderTotal (120$). La boucle de concurrence doit
             // l'empêcher.
-            var taskA = serviceA.RequestReturnRefundAsync(returnA, RefundCause.MerchantFault, "a", "admin-a", SD.ActorTypeAdmin);
-            var taskB = serviceB.RequestReturnRefundAsync(returnB, RefundCause.MerchantFault, "b", "admin-b", SD.ActorTypeAdmin);
+            var taskA = serviceA.RequestReturnRefundAsync(returnA, "a", "admin-a", SD.ActorTypeAdmin);
+            var taskB = serviceB.RequestReturnRefundAsync(returnB, "b", "admin-b", SD.ActorTypeAdmin);
             var results = await Task.WhenAll(taskA, taskB);
 
             Assert.All(results, r => Assert.IsType<RefundSucceeded>(r));

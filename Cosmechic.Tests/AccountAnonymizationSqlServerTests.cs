@@ -155,6 +155,93 @@ namespace Cosmechic.Tests
             Assert.False(oldPasswordStillWorks);
         }
 
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 10/11/17E/17F) : preuve SQL
+        // Server réelle des deux corrections de confidentialité — les champs legacy
+        // AspNetUser (propriétés CLR réelles, pas fantômes) sont effacés, les lignes
+        // ShoppingCart du compte anonymisé sont supprimées, un panier appartenant à un AUTRE
+        // compte reste intact, et les commandes historiques restent intactes avec leur FK.
+        [Fact]
+        public async Task AnonymizeAsync_ClearsLegacyAspNetUserFields_DeletesOwnCart_PreservesOtherAccountCartAndOrders()
+        {
+            if (SkipIfUnavailable()) return;
+
+            using var factory = CreateFactory();
+            using var scope = factory.Services.CreateScope();
+            var businessContext = scope.ServiceProvider.GetRequiredService<CosmechicsContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+            var anonymizationService = scope.ServiceProvider.GetRequiredService<IAccountAnonymizationService>();
+
+            var userId = $"user-{Guid.NewGuid():N}";
+            var otherUserId = $"user-{Guid.NewGuid():N}";
+            var email = $"real-{Guid.NewGuid():N}@example.test";
+            var otherEmail = $"real-{Guid.NewGuid():N}@example.test";
+            var createResult = await userManager.CreateAsync(new IdentityUser { Id = userId, UserName = email, Email = email }, "Real!Passw0rd123");
+            Assert.True(createResult.Succeeded, string.Join(";", createResult.Errors.Select(e => e.Description)));
+            var createOtherResult = await userManager.CreateAsync(new IdentityUser { Id = otherUserId, UserName = otherEmail, Email = otherEmail }, "Real!Passw0rd123");
+            Assert.True(createOtherResult.Succeeded, string.Join(";", createOtherResult.Errors.Select(e => e.Description)));
+
+            // Écran admin AspNetUsersController (Cosmechic.Models.AspNetUser, CosmechicsContext)
+            // — propriétés CLR réelles, jamais des propriétés fantômes.
+            var legacyProfile = await businessContext.AspNetUsers.SingleAsync(u => u.Id == userId);
+            legacyProfile.StreetAddress = "1 rue Legacy";
+            legacyProfile.City = "Montreal";
+            legacyProfile.State = "QC";
+            legacyProfile.PostalCode = "H0H0H0";
+            await businessContext.SaveChangesAsync();
+
+            var category = new Category { Nom = $"Cat-{Guid.NewGuid():N}", Image = "c.jpg", Disponible = true };
+            businessContext.Categories.Add(category);
+            await businessContext.SaveChangesAsync();
+            var produit = new Produit { Nom = $"P-{Guid.NewGuid():N}", CategorieId = category.CategorieId, Prix = 10m, Stock = 5, Disponible = true, Image = "p.jpg" };
+            businessContext.Produits.Add(produit);
+            await businessContext.SaveChangesAsync();
+
+            businessContext.ShoppingCarts.Add(new ShoppingCart { ApplicationUserId = userId, ProduitId = produit.ProduitId, Count = 1 });
+            businessContext.ShoppingCarts.Add(new ShoppingCart { ApplicationUserId = otherUserId, ProduitId = produit.ProduitId, Count = 3 });
+            await businessContext.SaveChangesAsync();
+
+            var order = new OrderHeader
+            {
+                ApplicationUserId = userId,
+                OrderDate = DateTime.UtcNow,
+                OrderTotal = 10m,
+                Subtotal = 10m,
+                Name = "Vrai Nom",
+                PhoneNumber = "5145551234",
+                StreetAddress = "1 rue Réelle",
+                City = "Montreal",
+                State = "QC",
+                PostalCode = "H0H0H0",
+            };
+            businessContext.OrderHeaders.Add(order);
+            await businessContext.SaveChangesAsync();
+            var orderId = order.Id;
+
+            var anonymized = await anonymizationService.AnonymizeAsync(userId);
+            Assert.True(anonymized);
+
+            // 1) Champs legacy effacés.
+            var reloadedProfile = await businessContext.AspNetUsers.AsNoTracking().SingleAsync(u => u.Id == userId);
+            Assert.Null(reloadedProfile.StreetAddress);
+            Assert.Null(reloadedProfile.City);
+            Assert.Null(reloadedProfile.State);
+            Assert.Null(reloadedProfile.PostalCode);
+
+            // 2) Panier du compte anonymisé supprimé.
+            var ownCartRemaining = await businessContext.ShoppingCarts.CountAsync(c => c.ApplicationUserId == userId);
+            Assert.Equal(0, ownCartRemaining);
+
+            // 3) Panier d'un AUTRE compte intact — jamais touché.
+            var otherCart = await businessContext.ShoppingCarts.AsNoTracking().SingleAsync(c => c.ApplicationUserId == otherUserId);
+            Assert.Equal(3, otherCart.Count);
+
+            // 4) Commande historique intacte, FK toujours valide (SQL Server aurait rejeté
+            // toute violation de contrainte lors du SaveChanges ci-dessus).
+            var reloadedOrder = await businessContext.OrderHeaders.AsNoTracking().SingleAsync(o => o.Id == orderId);
+            Assert.Equal(userId, reloadedOrder.ApplicationUserId);
+            Assert.Equal(10m, reloadedOrder.OrderTotal);
+        }
+
         [Fact]
         public async Task AnonymizeAsync_UnknownUser_ReturnsFalse()
         {

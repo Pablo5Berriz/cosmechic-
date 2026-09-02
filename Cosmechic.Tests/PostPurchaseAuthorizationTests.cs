@@ -106,6 +106,21 @@ namespace Cosmechic.Tests
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 7/17D) : ReleaseSafetyReview
+        // hérite [Authorize(Roles = "Admin")] du contrôleur — jamais accessible au client,
+        // au même titre que ApproveReturn/RejectReturn ci-dessous.
+        [Fact]
+        public async Task Customer_CannotReleaseSafetyReview()
+        {
+            var client = _factory.CreateTestClient().AsCustomerA();
+
+            var response = await client.PostAsync(
+                "/OrderOperations/ReleaseSafetyReview",
+                new FormUrlEncodedContent(new Dictionary<string, string> { ["ReturnRequestId"] = "1" }));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
         [Fact]
         public async Task Customer_CannotApproveReturn()
         {

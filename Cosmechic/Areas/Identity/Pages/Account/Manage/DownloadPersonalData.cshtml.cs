@@ -89,6 +89,19 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
 
             var authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
 
+            // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 10) : Cosmechic.Models.
+            // AspNetUser (CosmechicsContext) porte des propriétés CLR réelles
+            // (StreetAddress/City/State/PostalCode), actives via l'écran admin
+            // AspNetUsersController — jamais visibles dans `profile` ci-dessus, qui ne
+            // reflète que les propriétés marquées [PersonalData] sur le type IdentityUser
+            // (ApplicationDbContext) et ne peut structurellement pas voir celles-ci. Incluses
+            // ici tant qu'elles existent réellement dans le modèle actif — jamais un second
+            // modèle concurrent, seulement la même table déjà consommée par l'admin.
+            var legacyProfile = await _businessContext.AspNetUsers
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.StreetAddress, u.City, u.State, u.PostalCode })
+                .FirstOrDefaultAsync();
+
             var addresses = await _businessContext.CustomerAddresses
                 .Where(a => a.ApplicationUserId == userId)
                 .Select(a => new
@@ -187,6 +200,7 @@ namespace Cosmechic.Areas.Identity.Pages.Account.Manage
             var export = new
             {
                 Profile = profile,
+                LegacyProfile = legacyProfile,
                 ExternalLogins = externalLogins,
                 AuthenticatorKey = authenticatorKey,
                 Addresses = addresses,

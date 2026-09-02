@@ -41,6 +41,11 @@ namespace Cosmechic.Utility
         // volontairement PAS un scalaire agrégé sur OrderHeader, voir
         // docs/audits/COSMECHIC-COMMERCE-OPERATIONS-001B.md section "modèle d'état").
         public const string ReturnStatusRequested = "Requested";
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 7) : voie de triage distincte
+        // pour toute demande portant au moins une ligne SafetyOrAdverseReaction — jamais
+        // traitée comme une demande de retour ordinaire tant qu'un admin ne l'a pas
+        // explicitement libérée (ReleaseSafetyReviewAsync) vers ReturnStatusRequested.
+        public const string ReturnStatusNeedsSafetyReview = "NeedsSafetyReview";
         public const string ReturnStatusApproved = "Approved";
         public const string ReturnStatusRejected = "Rejected";
         public const string ReturnStatusReceived = "Received";

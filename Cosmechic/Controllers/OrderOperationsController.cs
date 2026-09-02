@@ -117,6 +117,18 @@ namespace Cosmechic.Controllers
             return RedirectToAction(nameof(Details), new { id = input.OrderId });
         }
 
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 7) : seule sortie possible de
+        // NeedsSafetyReview — admin-only (hérité du contrôleur), POST, antiforgery, auditée
+        // (ReturnService.ReleaseSafetyReviewAsync -> lifecycleService.RecordEvent). Ramène la
+        // demande en Requested, ne l'approuve ni ne la rejette elle-même.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReleaseSafetyReview(ReturnRequestIdCommentInput input)
+        {
+            var result = await returnService.ReleaseSafetyReviewAsync(input.ReturnRequestId, GetCurrentUserId()!, input.Comment);
+            return await RedirectAfterReturnActionAsync(input.ReturnRequestId, result);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApproveReturn(ReturnRequestIdCommentInput input)
@@ -170,14 +182,18 @@ namespace Cosmechic.Controllers
 
         // COSMECHIC-BUSINESS-POLICY-001 (section 4) : contrairement à TriggerRefund
         // ci-dessus (montant admin ad hoc, inchangé), cette action ne reçoit jamais de
-        // montant depuis le navigateur — Cause (enum fermé) est la seule décision confiée à
-        // l'admin, le calcul réel (marchandise/livraison/taxe) est entièrement serveur.
+        // montant depuis le navigateur.
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 8) : Cause n'est plus une
+        // décision confiée à l'admin ici — elle est dérivée côté serveur par
+        // RequestReturnRefundAsync à partir des ReturnReasonCategory déjà persistées sur les
+        // lignes du retour. Le calcul réel (marchandise/livraison/taxe/cause) est donc
+        // entièrement serveur, sans aucune entrée navigateur additionnelle.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> TriggerReturnRefund(TriggerReturnRefundInput input)
         {
             var result = await refundOrchestrationService.RequestReturnRefundAsync(
-                input.ReturnRequestId, input.Cause, input.Reason, GetCurrentUserId(), SD.ActorTypeAdmin);
+                input.ReturnRequestId, input.Reason, GetCurrentUserId(), SD.ActorTypeAdmin);
 
             TempData[result is RefundRejected ? "error" : "success"] = result switch
             {

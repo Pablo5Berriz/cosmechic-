@@ -92,6 +92,11 @@
                     {
                         <div>
                             OrderDetail #@item.OrderDetailId — Qté @item.Quantity
+                            — Motif: @item.Category
+                            @if (item.Category == Cosmechic.Services.ReturnReasonCategory.ChangeOfMind)
+                            {
+                                <text> (ouvert: @(item.IsOpened == true ? "oui" : "non"), utilisé: @(item.IsUsed == true ? "oui" : "non"), revendable déclaré: @(item.CustomerDeclaredResellable == true ? "oui" : "non"))</text>
+                            }
                             — Restocké: @(item.Restocked ? "Oui" : "Non")
                             @if (!item.Restocked && rr.Status is "Received" or "Completed")
                             {
@@ -104,6 +109,23 @@
                     }
                 </td>
                 <td>
+                    @if (rr.Status == "NeedsSafetyReview")
+                    {
+                        @* COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 7) : voie de
+                           triage distincte — cette demande contient au moins une ligne
+                           SafetyOrAdverseReaction. Ne peut jamais être approuvée, rejetée ou
+                           remboursée directement depuis cet état ; la seule action possible
+                           est de la libérer explicitement vers la file normale après revue. *@
+                        <div class="alert alert-warning py-1 px-2 mb-1">
+                            Revue de sécurité requise avant tout traitement standard.
+                        </div>
+                        <form asp-action="ReleaseSafetyReview" method="post" style="display:inline">
+                            <input type="hidden" name="ReturnRequestId" value="@rr.Id" />
+                            <label class="visually-hidden" for="safetyComment_@rr.Id">Commentaire de revue</label>
+                            <input type="text" id="safetyComment_@rr.Id" name="Comment" class="form-control form-control-sm d-inline-block w-auto" placeholder="Commentaire de revue (facultatif)" />
+                            <button type="submit" class="btn btn-xs btn-warning">Libérer vers la file normale</button>
+                        </form>
+                    }
                     @if (rr.Status == "Requested")
                     {
                         <form asp-action="ApproveReturn" method="post" style="display:inline">
@@ -131,16 +153,12 @@
                     }
                     @if (rr.Status == "Completed" && !Model.Refunds.Any(r => r.ReturnRequestId == rr.Id && r.Status != "Failed"))
                     {
-                        @* COSMECHIC-BUSINESS-POLICY-001 (section 4) : Cause est un <select> à
-                           options fermées rendues par le serveur — jamais un champ Amount ni
-                           un champ texte libre. Le calcul réel (marchandise/livraison/taxe)
-                           reste entièrement côté serveur (RequestReturnRefundAsync). *@
+                        @* COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 8) : Cause n'est
+                           plus une décision admin — elle est dérivée côté serveur des
+                           ReturnReasonCategory des lignes (voir colonne "Motif" ci-dessus),
+                           jamais fournie par ce formulaire. Aucun champ Amount ni Cause ici. *@
                         <form asp-action="TriggerReturnRefund" method="post" style="display:inline">
                             <input type="hidden" name="ReturnRequestId" value="@rr.Id" />
-                            <select name="Cause" class="form-select form-select-sm d-inline-block w-auto">
-                                <option value="CustomerRemorse">Client (livraison non remboursée)</option>
-                                <option value="MerchantFault">Erreur commerçant (livraison remboursée)</option>
-                            </select>
                             <button type="submit" class="btn btn-xs btn-warning">Rembourser ce retour</button>
                         </form>
                     }

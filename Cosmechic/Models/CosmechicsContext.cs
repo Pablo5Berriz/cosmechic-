@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cosmechic.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cosmechic.Models;
@@ -543,6 +544,28 @@ public partial class CosmechicsContext : DbContext
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.Reason).HasMaxLength(500);
+
+            // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 5/14) : Category stocké en
+            // texte (cohérent avec Refund.Cause/ReturnRequest.Status, jamais un CHECK SQL
+            // séparé pour un enum applicatif dans ce dépôt) mais typé C# comme un vrai enum
+            // fermé, jamais une chaîne libre au niveau du code.
+            //
+            // AUCUN .HasDefaultValue() ici, délibérément : ReturnReasonCategory.ChangeOfMind
+            // vaut 0, donc le sentinel CLR par défaut d'EF Core pour cet enum EST ChangeOfMind
+            // — un .HasDefaultValue(LegacyUnclassified) permanent aurait fait qu'EF substitue
+            // silencieusement LegacyUnclassified à CHAQUE insertion où Category est
+            // explicitement ChangeOfMind (avertissement EF confirmé lors de la génération de
+            // la migration : "configured with a database-generated default, but has no
+            // configured sentinel value... will always be used... since this is the CLR
+            // default"). Le backfill des lignes historiques ("LegacyUnclassified") est fait
+            // une seule fois dans la migration AddReturnReasonCategory via une valeur de
+            // colonne explicite sur l'AddColumn, jamais comme configuration de modèle
+            // permanente — voir cette migration pour la preuve que le défaut n'est appliqué
+            // qu'à l'ajout de colonne, pas à chaque insertion future.
+            entity.Property(e => e.Category)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired();
 
             entity.ToTable(t => t.HasCheckConstraint("CK_ReturnItems_Quantity_Positive", "[Quantity] > 0"));
 

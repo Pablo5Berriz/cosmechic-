@@ -117,7 +117,7 @@ namespace Cosmechic.Services
         // partie appel Stripe/finalisation (CallStripeAndFinalizeAsync) est réellement
         // partagée, car c'est elle qui porte la vraie complexité/risque.
         public async Task<RefundResult> RequestReturnRefundAsync(
-            int returnRequestId, RefundCause cause, string? reason, string? requestedByUserId, string actorType)
+            int returnRequestId, string? reason, string? requestedByUserId, string actorType)
         {
             for (var attempt = 1; attempt <= MaxConcurrencyAttempts; attempt++)
             {
@@ -155,6 +155,25 @@ namespace Cosmechic.Services
                 {
                     return new RefundRejected("Ce retour a déjà fait l'objet d'un remboursement.");
                 }
+
+                // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 8) : cause financière
+                // dérivée exclusivement des ReturnReasonCategory déjà persistées sur les
+                // lignes du retour (fixées, validées et impossibles à modifier depuis la
+                // demande initiale) — jamais fournie par l'appelant. Un retour dont au moins
+                // une ligne est WrongItemOrMerchantFault, DefectOrNonConformity ou
+                // SafetyOrAdverseReaction est traité comme MerchantFault (livraison remboursée) :
+                // dans les trois cas, le client n'est pas à l'origine du retour par simple
+                // préférence, et ne doit pas rester pénalisé sur les frais de port d'origine
+                // pendant qu'une éventuelle qualification légale plus précise reste à trancher.
+                // Seul un retour ne contenant que ChangeOfMind (ou LegacyUnclassified,
+                // traité par défaut prudent comme ChangeOfMind puisque sa vraie nature n'est
+                // pas connue) est CustomerRemorse.
+                var cause = returnRequest.Items.Any(ri => ri.Category is
+                        ReturnReasonCategory.WrongItemOrMerchantFault
+                        or ReturnReasonCategory.DefectOrNonConformity
+                        or ReturnReasonCategory.SafetyOrAdverseReaction)
+                    ? RefundCause.MerchantFault
+                    : RefundCause.CustomerRemorse;
 
                 // Section 5 (taxe) : jamais recalculée depuis un taux courant — proportion du
                 // snapshot fiscal original de la commande, plafonnée à ce qu'il en reste

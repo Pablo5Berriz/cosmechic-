@@ -13,51 +13,111 @@
 
 @if (TempData["error"] != null)
 {
-    <div class="container"><div class="alert alert-danger">@TempData["error"]</div></div>
+    <div class="container"><div class="alert alert-danger" role="alert">@TempData["error"]</div></div>
 }
 
+@* COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 3/16) : formulation prudente et
+   factuelle — aucune conclusion juridique définitive n'est affirmée ici. Un changement
+   d'avis n'est admissible que pour un produit non ouvert, non utilisé, déclaré revendable,
+   dans les 30 jours ; cette restriction commerciale ne limite jamais un droit légal
+   applicable (défaut, non-conformité, mauvais article, danger). *@
 <div class="container">
+    <div class="alert alert-info" role="note">
+        Un retour pour changement d'avis n'est accepté que si le produit est
+        <strong>non ouvert, non utilisé et revendable</strong>, dans les 30 jours suivant la
+        livraison. Cette limite ne s'applique jamais à un produit défectueux, non conforme,
+        dangereux ou envoyé par erreur — choisissez le motif correspondant ci-dessous pour ces
+        cas. Une allégation de réaction indésirable ou de problème de sécurité est traitée par
+        une revue distincte avant toute décision.
+    </div>
+
     @if (!Model.Lines.Any(l => l.MaxReturnable > 0))
     {
         <div class="alert alert-info">Aucun article de cette commande n'est actuellement admissible à un retour.</div>
     }
     else
     {
-        <form asp-action="Request" method="post">
+        <form asp-action="Request" method="post" id="returnRequestForm">
             <input type="hidden" name="OrderId" value="@Model.OrderId" />
             <div class="form-group mb-3">
-                <label>Motif général du retour</label>
-                <input type="text" name="Reason" class="form-control" />
+                <label for="returnReasonGeneral">Détails complémentaires (facultatif)</label>
+                <input type="text" id="returnReasonGeneral" name="Reason" class="form-control" />
             </div>
             <div class="form-group mb-3">
-                <label>Commentaire</label>
-                <textarea name="CustomerComment" class="form-control"></textarea>
+                <label for="returnCustomerComment">Commentaire</label>
+                <textarea id="returnCustomerComment" name="CustomerComment" class="form-control"></textarea>
             </div>
 
-            <table class="table">
-                <thead>
-                    <tr><th>Produit</th><th>Acheté</th><th>Retournable</th><th>Quantité à retourner</th></tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < Model.Lines.Count; i++)
-                    {
-                        var line = Model.Lines[i];
-                        <tr>
-                            <td>
-                                @line.ProduitNom
-                                <input type="hidden" name="Items[@i].OrderDetailId" value="@line.OrderDetailId" />
-                            </td>
-                            <td>@line.Purchased</td>
-                            <td>@line.MaxReturnable</td>
-                            <td>
-                                <input type="number" name="Items[@i].Quantity" min="0" max="@line.MaxReturnable" value="0" class="form-control" style="max-width: 100px;" @(line.MaxReturnable == 0 ? "disabled" : "") />
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            @for (var i = 0; i < Model.Lines.Count; i++)
+            {
+                var line = Model.Lines[i];
+                <fieldset class="border rounded p-3 mb-3" disabled="@(line.MaxReturnable == 0)">
+                    <legend class="fs-6">@line.ProduitNom</legend>
+                    <input type="hidden" name="Items[@i].OrderDetailId" value="@line.OrderDetailId" />
+
+                    <div class="row g-3 align-items-end">
+                        <div class="col-auto">
+                            <label for="qty_@i">Quantité (acheté : @line.Purchased, retournable : @line.MaxReturnable)</label>
+                            <input type="number" id="qty_@i" name="Items[@i].Quantity" min="0" max="@line.MaxReturnable" value="0" class="form-control" style="max-width: 100px;" />
+                        </div>
+                        <div class="col-auto">
+                            <label for="cat_@i">Motif du retour</label>
+                            <select id="cat_@i" name="Items[@i].Category" class="form-select return-category-select" data-line="@i">
+                                <option value="ChangeOfMind">Changement d'avis</option>
+                                <option value="DefectOrNonConformity">Produit défectueux ou non conforme</option>
+                                <option value="WrongItemOrMerchantFault">Mauvais article reçu / erreur Cosmechic</option>
+                                <option value="SafetyOrAdverseReaction">Réaction indésirable / problème de sécurité allégué</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label for="lineReason_@i">Détails pour cette ligne (facultatif)</label>
+                            <input type="text" id="lineReason_@i" name="Items[@i].Reason" class="form-control" />
+                        </div>
+                    </div>
+
+                    <fieldset class="border rounded p-2 mt-3 change-of-mind-conditions" id="conditions_@i">
+                        <legend class="fs-6">Déclaration du produit (obligatoire pour un changement d'avis)</legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="opened_@i" name="Items[@i].IsOpened" value="true" />
+                            <input type="hidden" name="Items[@i].IsOpened" value="false" />
+                            <label class="form-check-label" for="opened_@i">Le produit a été ouvert / descellé</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="used_@i" name="Items[@i].IsUsed" value="true" />
+                            <input type="hidden" name="Items[@i].IsUsed" value="false" />
+                            <label class="form-check-label" for="used_@i">Le produit a été utilisé</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="resellable_@i" name="Items[@i].CustomerDeclaredResellable" value="true" />
+                            <input type="hidden" name="Items[@i].CustomerDeclaredResellable" value="false" />
+                            <label class="form-check-label" for="resellable_@i">Je déclare ce produit dans un état revendable</label>
+                        </div>
+                    </fieldset>
+                    <p class="small text-muted safety-notice" id="safetyNotice_@i" hidden>
+                        Cette demande sera dirigée vers une revue distincte avant toute décision — elle n'est pas traitée comme un changement d'avis.
+                    </p>
+                </fieldset>
+            }
 
             <button type="submit" class="btn btn-primary">Soumettre la demande de retour</button>
         </form>
     }
 </div>
+
+@* Amélioration progressive uniquement (section 16) : si ce script échoue à s'exécuter, tous
+   les champs restent soumis et la validation serveur (ReturnService.CanRequestReturnAsync)
+   reste seule autorité — rien ici n'est un contrôle de sécurité. *@
+<script nonce="@CspNonce.Nonce">
+    document.querySelectorAll('.return-category-select').forEach(function (select) {
+        var line = select.dataset.line;
+        var conditions = document.getElementById('conditions_' + line);
+        var safetyNotice = document.getElementById('safetyNotice_' + line);
+        function update() {
+            var isChangeOfMind = select.value === 'ChangeOfMind';
+            conditions.hidden = !isChangeOfMind;
+            safetyNotice.hidden = select.value !== 'SafetyOrAdverseReaction';
+        }
+        select.addEventListener('change', update);
+        update();
+    });
+</script>

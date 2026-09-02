@@ -39,12 +39,13 @@ namespace Cosmechic.Models.ViewModels
 
     // COSMECHIC-BUSINESS-POLICY-001 (section 4) : contrairement à TriggerRefundInput, ne
     // porte volontairement AUCUN champ Amount — le montant est entièrement calculé côté
-    // serveur par RequestReturnRefundAsync. Cause est un type enum fermé (model binding
-    // MVC le refuse d'office si la valeur postée ne correspond à aucun des deux membres).
+    // serveur par RequestReturnRefundAsync.
+    // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 8) : Cause a été retiré de ce DTO —
+    // il n'est plus fourni par l'admin/le navigateur du tout, il est dérivé côté serveur à
+    // partir des ReturnReasonCategory déjà persistées sur les lignes du retour.
     public class TriggerReturnRefundInput
     {
         public int ReturnRequestId { get; set; }
-        public RefundCause Cause { get; set; }
         public string? Reason { get; set; }
     }
 

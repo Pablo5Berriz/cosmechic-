@@ -45,7 +45,11 @@ namespace Cosmechic.Controllers
 
             foreach (var detail in order.OrderDetails)
             {
-                var eligibility = await returnService.CanRequestReturnAsync(detail, 1);
+                // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 4/16) : aperçu avant que
+                // le client ait choisi une catégorie par ligne — category=null n'applique que
+                // les portes de base (expédiée/livrée, paiement confirmé, quantité
+                // disponible), jamais la fenêtre commerciale ni les déclarations d'état.
+                var eligibility = await returnService.CanRequestReturnAsync(detail, 1, null, null, null, null);
                 var alreadyClaimed = await context.ReturnItems
                     .Where(ri => ri.OrderDetailId == detail.Id && ri.ReturnRequest.Status != Utility.SD.ReturnStatusRejected)
                     .SumAsync(ri => (int?)ri.Quantity) ?? 0;
@@ -77,7 +81,8 @@ namespace Cosmechic.Controllers
 
             var items = input.Items
                 .Where(i => i.Quantity > 0)
-                .Select(i => new ReturnItemInput(i.OrderDetailId, i.Quantity, i.Reason))
+                .Select(i => new ReturnItemInput(
+                    i.OrderDetailId, i.Quantity, i.Reason, i.Category, i.IsOpened, i.IsUsed, i.CustomerDeclaredResellable))
                 .ToList();
 
             // userId dérivé de l'identité authentifiée (jamais du formulaire, section 54) —

@@ -65,7 +65,8 @@ namespace Cosmechic.Tests
         {
             var (_, detail) = SeedDeliveredOrder(DateTime.UtcNow.AddDays(-29));
 
-            var eligibility = await _sut.CanRequestReturnAsync(detail, 1);
+            var eligibility = await _sut.CanRequestReturnAsync(
+                detail, 1, ReturnReasonCategory.ChangeOfMind, isOpened: false, isUsed: false, customerDeclaredResellable: true);
 
             Assert.IsType<ReturnEligible>(eligibility);
         }
@@ -75,7 +76,8 @@ namespace Cosmechic.Tests
         {
             var (_, detail) = SeedDeliveredOrder(DateTime.UtcNow.AddDays(-30));
 
-            var eligibility = await _sut.CanRequestReturnAsync(detail, 1);
+            var eligibility = await _sut.CanRequestReturnAsync(
+                detail, 1, ReturnReasonCategory.ChangeOfMind, isOpened: false, isUsed: false, customerDeclaredResellable: true);
 
             Assert.IsType<ReturnEligible>(eligibility);
         }
@@ -85,9 +87,24 @@ namespace Cosmechic.Tests
         {
             var (_, detail) = SeedDeliveredOrder(DateTime.UtcNow.AddDays(-31));
 
-            var eligibility = await _sut.CanRequestReturnAsync(detail, 1);
+            var eligibility = await _sut.CanRequestReturnAsync(
+                detail, 1, ReturnReasonCategory.ChangeOfMind, isOpened: false, isUsed: false, customerDeclaredResellable: true);
 
             Assert.IsType<ReturnIneligible>(eligibility);
+        }
+
+        // COSMECHIC-LEGAL-POLICY-IMPLEMENTATION-001 (section 4) : décision PM appliquée — la
+        // fenêtre de 30 jours ne gouverne QUE ChangeOfMind. Une demande DefectOrNonConformity
+        // au-delà de 30 jours n'est jamais rejetée par la seule fenêtre commerciale.
+        [Fact]
+        public async Task DeliveredExactly31DaysAgo_DefectOrNonConformity_IsNotRejectedByWindow()
+        {
+            var (_, detail) = SeedDeliveredOrder(DateTime.UtcNow.AddDays(-31));
+
+            var eligibility = await _sut.CanRequestReturnAsync(
+                detail, 1, ReturnReasonCategory.DefectOrNonConformity, isOpened: null, isUsed: null, customerDeclaredResellable: null);
+
+            Assert.IsType<ReturnEligible>(eligibility);
         }
 
         [Fact]
@@ -101,7 +118,8 @@ namespace Cosmechic.Tests
             await _context.SaveChangesAsync();
 
             var reloadedDetail = await _context.OrderDetails.FindAsync(detail.Id);
-            var eligibility = await _sut.CanRequestReturnAsync(reloadedDetail!, 1);
+            var eligibility = await _sut.CanRequestReturnAsync(
+                reloadedDetail!, 1, ReturnReasonCategory.ChangeOfMind, isOpened: false, isUsed: false, customerDeclaredResellable: true);
 
             Assert.IsType<ReturnIneligible>(eligibility);
         }
@@ -112,7 +130,8 @@ namespace Cosmechic.Tests
             var (order, detail) = SeedDeliveredOrder(DateTime.UtcNow.AddDays(-5), ownerId: "user-a");
 
             var result = await _sut.CreateReturnRequestAsync(
-                order.Id, "user-b", "reason", null, new[] { new ReturnItemInput(detail.Id, 1, null) });
+                order.Id, "user-b", "reason", null,
+                new[] { new ReturnItemInput(detail.Id, 1, null, ReturnReasonCategory.ChangeOfMind, false, false, true) });
 
             Assert.IsType<ReturnRequestRejectedByPolicy>(result);
         }

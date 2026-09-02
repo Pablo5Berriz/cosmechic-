@@ -36,9 +36,10 @@ namespace Cosmechic.Tests
 
             var html = await (await client.GetAsync($"/Cart/Receipt/{TestDataSeeder.OrderHeaderAId}")).Content.ReadAsStringAsync();
 
-            // Aucune valeur inventée pour LegalBusinessName/BusinessAddress/
-            // TaxRegistrationNumbers : la config par défaut (BusinessInformationOptions) les
-            // laisse vides — s'ils apparaissaient ici avec une vraie valeur, ce serait soit
+            // Aucune valeur inventée pour LegalBusinessName/BusinessAddress/GstNumber/
+            // QstNumber : la config par défaut (BusinessInformationOptions) les laisse vides
+            // (GstRegistrationStatus/QstRegistrationStatus restent Unknown) — s'ils
+            // apparaissaient ici avec une vraie valeur, ce serait soit
             // une config réelle (acceptable), soit une fabrication (jamais acceptable). On
             // vérifie ici le comportement par défaut réel de ce dépôt : rien de fiscal
             // n'est affirmé.

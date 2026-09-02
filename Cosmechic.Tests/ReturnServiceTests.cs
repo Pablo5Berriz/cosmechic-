@@ -68,7 +68,7 @@ namespace Cosmechic.Tests
             var (order, detailA, _) = SeedShippedOrderWithTwoLines(ownerId: "user-a");
 
             var result = await _sut.CreateReturnRequestAsync(
-                order.Id, "user-b", "reason", null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+                order.Id, "user-b", "reason", null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             Assert.IsType<ReturnRequestRejectedByPolicy>(result);
             Assert.Empty(_context.ReturnRequests);
@@ -80,7 +80,7 @@ namespace Cosmechic.Tests
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
 
             var result = await _sut.CreateReturnRequestAsync(
-                order.Id, "user-a", "damaged", "please refund", new[] { new ReturnItemInput(detailA.Id, 1, "damaged") });
+                order.Id, "user-a", "damaged", "please refund", new[] { new ReturnItemInput(detailA.Id, 1, "damaged", ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             var created = Assert.IsType<ReturnRequestCreated>(result);
             var returnRequest = _context.ReturnRequests.Include(rr => rr.Items).Single(rr => rr.Id == created.ReturnRequestId);
@@ -94,10 +94,10 @@ namespace Cosmechic.Tests
         {
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
             // detailA purchased Count=2, return only 1.
-            await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+            await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             var reloaded = await _context.OrderDetails.FirstAsync(d => d.Id == detailA.Id);
-            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 1);
+            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 1, ReturnReasonCategory.DefectOrNonConformity, null, null, null);
 
             Assert.IsType<ReturnEligible>(eligibility);
         }
@@ -108,7 +108,7 @@ namespace Cosmechic.Tests
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
             var reloaded = await _context.OrderDetails.Include(d => d.OrderHeader).FirstAsync(d => d.Id == detailA.Id);
 
-            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 0);
+            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 0, ReturnReasonCategory.DefectOrNonConformity, null, null, null);
 
             Assert.IsType<ReturnIneligible>(eligibility);
         }
@@ -120,7 +120,7 @@ namespace Cosmechic.Tests
             var reloaded = await _context.OrderDetails.Include(d => d.OrderHeader).FirstAsync(d => d.Id == detailA.Id);
 
             // detailA.Count == 2 ; demander 3 doit être refusé.
-            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 3);
+            var eligibility = await _sut.CanRequestReturnAsync(reloaded, 3, ReturnReasonCategory.DefectOrNonConformity, null, null, null);
 
             Assert.IsType<ReturnIneligible>(eligibility);
         }
@@ -130,12 +130,12 @@ namespace Cosmechic.Tests
         {
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
             // detailA.Count == 2. First request claims 2 (all of it).
-            var first = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 2, null) });
+            var first = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 2, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
             Assert.IsType<ReturnRequestCreated>(first);
 
             // Second request for the same line, even 1 more unit, must be rejected —
             // nothing left to return.
-            var second = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+            var second = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             Assert.IsType<ReturnRequestRejectedByPolicy>(second);
         }
@@ -148,7 +148,7 @@ namespace Cosmechic.Tests
             orderEntity.FulfillmentStatus = SD.FulfillmentStatusUnfulfilled;
             await _context.SaveChangesAsync();
 
-            var result = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+            var result = await _sut.CreateReturnRequestAsync(order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             Assert.IsType<ReturnRequestRejectedByPolicy>(result);
         }
@@ -158,7 +158,7 @@ namespace Cosmechic.Tests
         {
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
             var created = (ReturnRequestCreated)await _sut.CreateReturnRequestAsync(
-                order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+                order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             var approveResult = await _sut.ApproveAsync(created.ReturnRequestId, "admin-1", "ok");
             Assert.IsType<ReturnActionApplied>(approveResult);
@@ -173,7 +173,7 @@ namespace Cosmechic.Tests
         {
             var (order, detailA, _) = SeedShippedOrderWithTwoLines();
             var created = (ReturnRequestCreated)await _sut.CreateReturnRequestAsync(
-                order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null) });
+                order.Id, "user-a", null, null, new[] { new ReturnItemInput(detailA.Id, 1, null, ReturnReasonCategory.DefectOrNonConformity, null, null, null) });
 
             Assert.IsType<ReturnActionApplied>(await _sut.ApproveAsync(created.ReturnRequestId, "admin-1", null));
             Assert.IsType<ReturnActionApplied>(await _sut.MarkReceivedAsync(created.ReturnRequestId, "admin-1"));
