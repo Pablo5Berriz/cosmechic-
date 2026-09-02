@@ -17,8 +17,11 @@
                 <h2 class="h5 fw-bold">Demander un retour</h2>
                 <p>
                     Depuis <a asp-controller="Account" asp-action="Orders">le détail d'une commande livrée</a>,
-                    vous pouvez demander un retour pour tout ou partie des articles reçus, et indiquer une
-                    raison. Une commande peut faire l'objet de plusieurs demandes de retour distinctes.
+                    vous pouvez demander un retour pour tout ou partie des articles reçus. Pour chaque article,
+                    vous choisissez le motif qui correspond le mieux à votre situation (changement d'avis,
+                    produit défectueux ou non conforme, mauvais article reçu, ou réaction indésirable/problème de
+                    sécurité) et pouvez ajouter des détails. Une commande peut faire l'objet de plusieurs
+                    demandes de retour distinctes.
                 </p>
             </section>
 
@@ -26,24 +29,35 @@
                 <h2 class="h5 fw-bold">Délai de retour</h2>
                 @if (policy.ReturnWindowDays.HasValue)
                 {
-                    <p>Vous disposez de @policy.ReturnWindowDays jours pour effectuer une demande de retour.</p>
+                    <p>
+                        Un retour pour <strong>changement d'avis</strong> est admissible dans les
+                        @policy.ReturnWindowDays jours suivant la livraison, uniquement si le produit est non
+                        ouvert, non utilisé et dans un état revendable.
+                    </p>
                 }
                 else
                 {
                     <p class="text-muted">
-                        Le délai applicable pour effectuer une demande de retour n'a pas encore été défini par
+                        Le délai applicable à un retour pour changement d'avis n'a pas encore été défini par
                         l'entreprise. Consultez cette page avant de finaliser un retour, ou contactez-nous si
                         vous avez un doute.
                     </p>
                 }
+                <p>
+                    Ce délai commercial ne s'applique <strong>jamais</strong> aux recours prévus par la loi pour
+                    un produit défectueux, non conforme, dangereux, ou envoyé par erreur : ces situations restent
+                    traitées indépendamment de ce délai. Une allégation de réaction indésirable ou de problème de
+                    sécurité n'est jamais traitée comme un simple changement d'avis — elle suit un processus de
+                    revue distinct avant toute décision.
+                </p>
             </section>
 
             <section class="mb-4">
                 <h2 class="h5 fw-bold">Traitement de votre demande</h2>
                 <p>
                     Une fois votre demande approuvée et les articles reçus, notre équipe les inspecte avant de
-                    décider de leur remise en stock. Le statut de votre retour (demandé, approuvé, reçu, terminé)
-                    est visible en tout temps dans
+                    décider de leur remise en stock. Le statut de votre retour (demandé, approuvé, reçu, terminé,
+                    ou en revue si un problème de sécurité a été signalé) est visible en tout temps dans
                     <a asp-controller="Account" asp-action="Returns">la section Retours de votre compte</a>.
                 </p>
             </section>

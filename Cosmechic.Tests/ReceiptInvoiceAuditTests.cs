@@ -36,7 +36,7 @@ namespace Cosmechic.Tests
 
             var html = await (await client.GetAsync($"/Cart/Receipt/{TestDataSeeder.OrderHeaderAId}")).Content.ReadAsStringAsync();
 
-            // Aucune valeur inventée pour LegalBusinessName/BusinessAddress/GstNumber/
+            // Aucune valeur inventée pour LegalBusinessName/BusinessStreetAddress/GstNumber/
             // QstNumber : la config par défaut (BusinessInformationOptions) les laisse vides
             // (GstRegistrationStatus/QstRegistrationStatus restent Unknown) — s'ils
             // apparaissaient ici avec une vraie valeur, ce serait soit
