@@ -69,8 +69,13 @@ namespace Cosmechic.Tests
 
             var html = await (await client.GetAsync($"/Cart/Receipt/{TestDataSeeder.OrderHeaderAId}")).Content.ReadAsStringAsync();
 
-            // TestDataSeeder : OrderHeaderA a Subtotal=25.00, OrderTotal=25.00.
-            Assert.Contains("25.00 CAD", html);
+            // TestDataSeeder : OrderHeaderA a Subtotal=25.00, OrderTotal=25.00 (snapshot financier
+            // persiste inchange). Politique d'affichage du recu : culture fr-CA explicite
+            // (Receipt.cshtml, displayCulture), independante de la culture OS du serveur -> separateur
+            // decimal virgule attendu de facon deterministe, jamais "25.00" (qui dependrait d'une
+            // culture serveur accidentelle). La valeur financiere verifiee reste 25,00 $CAD exact.
+            Assert.Contains("25,00 CAD", html);
+            Assert.DoesNotContain("25.00 CAD", html);
         }
 
         [Fact]

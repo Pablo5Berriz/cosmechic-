@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Microsoft.AspNetCore.Mvc;
+using Cosmechic.ModelBinding;
 
 namespace Cosmechic.Models;
 
@@ -14,8 +16,10 @@ public partial class Produit
 
     public string? Description { get; set; }
 
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal Prix { get; set; }
 
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal Stock { get; set; }
 
     public bool Disponible { get; set; }

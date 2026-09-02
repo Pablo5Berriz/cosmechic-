@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using Cosmechic.ModelBinding;
 
 namespace Cosmechic.Models;
 
@@ -13,6 +15,7 @@ public partial class OrderDetail
 
     public int Count { get; set; }
 
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal Price { get; set; }
 
     // Préparation COSMECHIC-DATA-001 pour l'intégrité historique des commandes : capture

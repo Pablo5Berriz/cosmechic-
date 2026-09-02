@@ -1,9 +1,14 @@
 @using Cosmechic.Models
+@using System.Globalization
 @model OrderHeader
 
 @{
     ViewData["Title"] = $"Reçu — commande #{Model.Id}";
     Layout = null;
+    // Montants du reçu affichés avec une culture explicite (fr-CA, marché cible),
+    // jamais avec la culture ambiante du serveur (CultureInfo.CurrentCulture),
+    // pour un rendu déterministe quel que soit l'OS/la locale d'hébergement.
+    var displayCulture = CultureInfo.GetCultureInfo("fr-CA");
 }
 <!DOCTYPE html>
 <html lang="fr">
@@ -49,26 +54,26 @@
                 <tr>
                     <td>@detail.ProduitNom</td>
                     <td>@(detail.Produit?.Sku)</td>
-                    <td>@detail.Price.ToString("0.00") CAD</td>
+                    <td>@detail.Price.ToString("0.00", displayCulture) CAD</td>
                     <td>@detail.Count</td>
-                    <td>@((detail.Price * detail.Count).ToString("0.00")) CAD</td>
+                    <td>@((detail.Price * detail.Count).ToString("0.00", displayCulture)) CAD</td>
                 </tr>
             }
         </tbody>
     </table>
 
     <table class="totals">
-        <tr><td class="label">Sous-total</td><td>@Model.Subtotal.ToString("0.00") CAD</td></tr>
-        <tr><td class="label">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})")</td><td>@Model.ShippingAmount.ToString("0.00") CAD</td></tr>
-        <tr><td class="label">Taxes</td><td>@Model.TaxAmount.ToString("0.00") CAD</td></tr>
+        <tr><td class="label">Sous-total</td><td>@Model.Subtotal.ToString("0.00", displayCulture) CAD</td></tr>
+        <tr><td class="label">Livraison@(string.IsNullOrEmpty(Model.ShippingMethodName) ? "" : $" ({Model.ShippingMethodName})")</td><td>@Model.ShippingAmount.ToString("0.00", displayCulture) CAD</td></tr>
+        <tr><td class="label">Taxes</td><td>@Model.TaxAmount.ToString("0.00", displayCulture) CAD</td></tr>
         @if (Model.DiscountAmount > 0)
         {
-            <tr><td class="label">Rabais</td><td>-@Model.DiscountAmount.ToString("0.00") CAD</td></tr>
+            <tr><td class="label">Rabais</td><td>-@Model.DiscountAmount.ToString("0.00", displayCulture) CAD</td></tr>
         }
-        <tr class="total-row"><td class="label">Total</td><td>@Model.OrderTotal.ToString("0.00") CAD</td></tr>
+        <tr class="total-row"><td class="label">Total</td><td>@Model.OrderTotal.ToString("0.00", displayCulture) CAD</td></tr>
         @if (Model.RefundedAmount > 0)
         {
-            <tr><td class="label">Remboursé</td><td>-@Model.RefundedAmount.ToString("0.00") CAD</td></tr>
+            <tr><td class="label">Remboursé</td><td>-@Model.RefundedAmount.ToString("0.00", displayCulture) CAD</td></tr>
         }
     </table>
 

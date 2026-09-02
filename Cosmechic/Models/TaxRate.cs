@@ -1,4 +1,6 @@
 using System;
+using Microsoft.AspNetCore.Mvc;
+using Cosmechic.ModelBinding;
 
 namespace Cosmechic.Models;
 
@@ -18,6 +20,7 @@ public partial class TaxRate
 
     public string? RegionCode { get; set; }
 
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal Rate { get; set; }
 
     public DateTime EffectiveFrom { get; set; }

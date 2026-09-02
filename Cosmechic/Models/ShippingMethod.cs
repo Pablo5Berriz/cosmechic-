@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using Cosmechic.ModelBinding;
 
 namespace Cosmechic.Models;
 
@@ -12,11 +14,13 @@ public partial class ShippingMethod
 
     public string? Description { get; set; }
 
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal Price { get; set; }
 
     // COSMECHIC-COMMERCE-OPERATIONS-001A (section 15) : null = pas de livraison gratuite
     // pour cette méthode. Aucun seuil n'est inventé — configurable par l'admin,
     // TODO_REQUIRES_BUSINESS_CONFIGURATION tant qu'aucune valeur n'est saisie.
+    [ModelBinder(BinderType = typeof(InvariantDecimalModelBinder))]
     public decimal? FreeShippingThreshold { get; set; }
 
     public bool IsActive { get; set; } = true;
